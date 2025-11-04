@@ -18,6 +18,21 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'person.circle.fill': 'account-circle',
+  'person.fill': 'person',
+  'headphones': 'headphones',
+  'book.fill': 'book',
+  'pencil.and.list.clipboard': 'edit-note',
+  'bubble.left.and.text.bubble.right.fill': 'chat-bubble',
+  'cpu': 'memory',
+  'book.pages.fill': 'menu-book',
+  'mic.fill': 'mic',
+  'doc.text.fill': 'description',
+  'graduationcap.fill': 'school',
+  'cpu.fill': 'memory',
+  'g.circle.fill': 'circle',
+  'f.circle.fill': 'circle',
+  'apple.logo': 'apple',
 } as IconMapping;
 
 /**
