@@ -144,6 +144,39 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Renew Access Token",
+					"id": "38052279-9d96ca3e-fd86-44a3-8295-e2b50dad239b",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ5NWJjZTJmLTY4YmYtNGI2MC1iZTljLWUxMWVhZjYzYzQyNiIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIxOjMzOjAyLjk4OTE1MDYtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNlQyMTozMzowMi45ODkxNTA2LTA0OjAwIn0.Mpd1dL6AWxCfiHl4o7Wqm0Qt-cJNn9n4iObXpZYUzhc\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/v1/token/renew",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"token",
+								"renew"
+							]
+						}
+					},
+					"response": []
 				}
 			],
 			"id": "38052279-2a4c7f3c-11bb-4ed3-b0a6-cc31cfb7422d"
@@ -341,39 +374,6 @@
 							"key": "user_id",
 							"value": "1111111"
 						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Renew Access Token",
-			"id": "38052279-9d96ca3e-fd86-44a3-8295-e2b50dad239b",
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "POST",
-				"header": [],
-				"body": {
-					"mode": "raw",
-					"raw": "{\r\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ5NWJjZTJmLTY4YmYtNGI2MC1iZTljLWUxMWVhZjYzYzQyNiIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIxOjMzOjAyLjk4OTE1MDYtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNlQyMTozMzowMi45ODkxNTA2LTA0OjAwIn0.Mpd1dL6AWxCfiHl4o7Wqm0Qt-cJNn9n4iObXpZYUzhc\"\r\n}",
-					"options": {
-						"raw": {
-							"language": "json"
-						}
-					}
-				},
-				"url": {
-					"raw": "{{baseURL}}/api/v1/token/renew",
-					"host": [
-						"{{baseURL}}"
-					],
-					"path": [
-						"api",
-						"v1",
-						"token",
-						"renew"
 					]
 				}
 			},
