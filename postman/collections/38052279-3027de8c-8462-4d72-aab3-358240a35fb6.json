@@ -1,0 +1,960 @@
+{
+	"info": {
+		"_postman_id": "38052279-3027de8c-8462-4d72-aab3-358240a35fb6",
+		"name": "AIELTS APIs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "auth",
+			"item": [
+				{
+					"name": "auth first",
+					"id": "38052279-59df7512-047c-408e-802a-5883bd77259f",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": ""
+						}
+					},
+					"response": []
+				}
+			],
+			"id": "38052279-2a4c7f3c-11bb-4ed3-b0a6-cc31cfb7422d"
+		},
+		{
+			"name": "users",
+			"item": [],
+			"id": "38052279-56374259-488d-490f-85b9-a702f798e527"
+		},
+		{
+			"name": "dictonary",
+			"item": [],
+			"id": "38052279-86e5d565-6f92-40e7-95a4-7f446cf56511"
+		},
+		{
+			"name": "Feedback",
+			"item": [],
+			"id": "38052279-0cda5dc4-aff6-4567-b054-3f0ad36b0784"
+		},
+		{
+			"name": "tests",
+			"item": [
+				{
+					"name": "Test Server",
+					"id": "38052279-c4e867e8-b555-47da-a8cc-71b2eb24b2be",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "user_id",
+									"value": "111277539665479361285",
+									"type": "text",
+									"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
+								},
+								{
+									"key": "question_id",
+									"value": "1",
+									"type": "text",
+									"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
+								},
+								{
+									"key": "audio_file",
+									"type": "file",
+									"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
+									"src": "/C:/Users/hoang/Downloads/record_out.ogg"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/v1/ping",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"ping"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"id": "38052279-2273448f-20f2-4d61-bac8-9aecd6343d1f"
+		},
+		{
+			"name": "words",
+			"item": [],
+			"id": "38052279-bc3f33b5-cf1d-41f2-8145-e9e062a34585"
+		},
+		{
+			"name": "questions",
+			"item": [
+				{
+					"name": "Untitled Request",
+					"id": "38052279-d59a7b35-45ee-43d1-b637-75e7e83fa817",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": ""
+						}
+					},
+					"response": []
+				}
+			],
+			"id": "38052279-a0cee149-e7aa-4cd2-928a-f04614905150"
+		},
+		{
+			"name": "Test Redis Worker",
+			"id": "38052279-b2dc613d-e422-423a-aed3-c4e77ded32c6",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5MDFkZjgyLWU0NDItNGQwMS04YWU4LThmOGVkYzc3Mzg0ZSIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIzOjIxOjExLjgyMDgxNjMtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNVQyMzo1MToxMS44MjA4MTYzLTA0OjAwIn0.yseKvcEEvYwvc_yzy9Go1JUY0DYK0SwKRzj_gxSymeA",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "user_id",
+							"value": "",
+							"description": "nhớ lưu user_id lúc login",
+							"type": "text",
+							"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
+						},
+						{
+							"key": "question_id",
+							"value": "1",
+							"type": "text",
+							"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
+						},
+						{
+							"key": "audio_file",
+							"description": "tạo audio dạng .ogg r đính kèm",
+							"type": "file",
+							"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
+							"value": null
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/test_worker",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"test_worker"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Test User ID From Auth Middleware",
+			"id": "38052279-5fee3300-7c17-4a7e-be4f-243192769b26",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI2Mzc4NDEzLTUxY2EtNDdjZC05Y2VkLTc1ZDAxNjJmZmE5NCIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTAyVDE2OjQxOjExLjc3NDM4NDctMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0xMC0wMlQxNzoxMToxMS43NzQzODQ3LTA0OjAwIn0.UfrG6O2BK7RHZrn4MY5dU167ycrC8HvuCPCZ_RXk2wk",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8301/api/v1/test_users?user_id=1111111",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8301",
+					"path": [
+						"api",
+						"v1",
+						"test_users"
+					],
+					"query": [
+						{
+							"key": "user_id",
+							"value": "1111111"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Login By Oauth",
+			"id": "38052279-6b8a341c-92c6-44e0-a3d5-86fae70f2d6a",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5MDFkZjgyLWU0NDItNGQwMS04YWU4LThmOGVkYzc3Mzg0ZSIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIzOjIxOjExLjgyMDgxNjMtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNVQyMzo1MToxMS44MjA4MTYzLTA0OjAwIn0.yseKvcEEvYwvc_yzy9Go1JUY0DYK0SwKRzj_gxSymeA",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "user_id",
+							"value": "",
+							"description": "nhớ lưu user_id lúc login",
+							"type": "text",
+							"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
+						},
+						{
+							"key": "question_id",
+							"value": "1",
+							"type": "text",
+							"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
+						},
+						{
+							"key": "audio_file",
+							"description": "tạo audio dạng .ogg r đính kèm",
+							"type": "file",
+							"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
+							"value": null
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/auth/google",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"auth",
+						"google"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Call back From Google",
+			"id": "38052279-2f1e9d5d-af48-4748-9d03-2f330440194d",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5MDFkZjgyLWU0NDItNGQwMS04YWU4LThmOGVkYzc3Mzg0ZSIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIzOjIxOjExLjgyMDgxNjMtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNVQyMzo1MToxMS44MjA4MTYzLTA0OjAwIn0.yseKvcEEvYwvc_yzy9Go1JUY0DYK0SwKRzj_gxSymeA",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "user_id",
+							"value": "",
+							"description": "nhớ lưu user_id lúc login",
+							"type": "text",
+							"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
+						},
+						{
+							"key": "question_id",
+							"value": "1",
+							"type": "text",
+							"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
+						},
+						{
+							"key": "audio_file",
+							"description": "tạo audio dạng .ogg r đính kèm",
+							"type": "file",
+							"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
+							"value": null
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/auth/google/callback",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"auth",
+						"google",
+						"callback"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Renew Access Token",
+			"id": "38052279-9d96ca3e-fd86-44a3-8295-e2b50dad239b",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ5NWJjZTJmLTY4YmYtNGI2MC1iZTljLWUxMWVhZjYzYzQyNiIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIxOjMzOjAyLjk4OTE1MDYtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNlQyMTozMzowMi45ODkxNTA2LTA0OjAwIn0.Mpd1dL6AWxCfiHl4o7Wqm0Qt-cJNn9n4iObXpZYUzhc\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/token/renew",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"token",
+						"renew"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Web Socket Endpoint",
+			"id": "38052279-6184f561-b121-4163-80c0-87b90b0c34e4",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/v1/ws/feedback ",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"ws",
+						"feedback "
+					],
+					"query": [
+						{
+							"key": null,
+							"value": null,
+							"type": "text",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: Speaking Topic Overview <OK>",
+			"id": "38052279-bd5164d7-21ac-42f8-8c35-fcf95baafc21",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjJlZjA5YzljLTVlZTYtNDNkNi1hZDA0LWI0MjI3M2NhNjk2YiIsInVzZXJfaWQiOiIxMTEyNzc1Mzk2NjU0NzkzNjEyODUiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTIyVDEyOjIxOjA3LjA5NTYzOTEtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0xMC0yMlQxMjo1MTowNy4wOTU2MzkxLTA0OjAwIn0.cXNOBgqCmY7UHjhUVu226yMlSzGSg6KerQlZueCOdec",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/v1/topics",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"topics"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: View Speaking Questions <OK>",
+			"id": "38052279-e18314ab-13bb-4799-9ab8-09141b8d30ec",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjJlZjA5YzljLTVlZTYtNDNkNi1hZDA0LWI0MjI3M2NhNjk2YiIsInVzZXJfaWQiOiIxMTEyNzc1Mzk2NjU0NzkzNjEyODUiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTIyVDEyOjIxOjA3LjA5NTYzOTEtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0xMC0yMlQxMjo1MTowNy4wOTU2MzkxLTA0OjAwIn0.cXNOBgqCmY7UHjhUVu226yMlSzGSg6KerQlZueCOdec",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "user_id",
+							"value": "",
+							"description": "nhớ lưu user_id lúc login",
+							"type": "text",
+							"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
+						},
+						{
+							"key": "question_id",
+							"value": "1",
+							"type": "text",
+							"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
+						},
+						{
+							"key": "audio_file",
+							"description": "tạo audio dạng .ogg r đính kèm",
+							"type": "file",
+							"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
+							"value": null
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/questions?topic_tag_id=1&page_index=1&page_size=10&sort_by=popularity",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"questions"
+					],
+					"query": [
+						{
+							"key": "topic_tag_id",
+							"value": "1"
+						},
+						{
+							"key": "page_index",
+							"value": "1"
+						},
+						{
+							"key": "page_size",
+							"value": "10"
+						},
+						{
+							"key": "sort_by",
+							"value": "popularity"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: Practice Questions <OK>",
+			"id": "38052279-772c9087-2fb2-498c-9916-8323c23eeac7",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjJlZjA5YzljLTVlZTYtNDNkNi1hZDA0LWI0MjI3M2NhNjk2YiIsInVzZXJfaWQiOiIxMTEyNzc1Mzk2NjU0NzkzNjEyODUiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTIyVDEyOjIxOjA3LjA5NTYzOTEtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0xMC0yMlQxMjo1MTowNy4wOTU2MzkxLTA0OjAwIn0.cXNOBgqCmY7UHjhUVu226yMlSzGSg6KerQlZueCOdec",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/v1/questions/180",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"questions",
+						"180"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: Practice Quesions <Submit Answer>",
+			"id": "38052279-d8e5e677-d8c1-40b2-b8bc-9bc23ed1d92f",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Ijg1MjAwOTE4LWY1NWYtNDhjMS05ZTBmLWRkMzdiODc5YjU3NiIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTIxVDE5OjE4OjQ3LjE0NjQ4NzUtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0xMC0yMVQxOTo0ODo0Ny4xNDY0ODc1LTA0OjAwIn0.iLEq043arcsTIZ82eQ6o9JmDw4aCbQcdlhI9TDPAPHg",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "audio_file",
+							"description": "tạo audio dạng .ogg r đính kèm",
+							"type": "file",
+							"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
+							"src": "/C:/Users/hoang/MyGo/ielts-ai-app/audio/useranswertestaudios/part3q118.ogg"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/questions/<question_id>/answers",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"questions",
+						"<question_id>",
+						"answers"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: View Speaking Records <OK>",
+			"id": "38052279-5225bb9d-f50b-4b44-bc15-fc87db7ecd88",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImU3MTU4ZTljLTVmMWEtNDkwMS05OTA1LWY0NWVlMzE1NDQ0ZCIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTIxVDIwOjM4OjE1LjEwMDIyMDEtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0xMC0yMVQyMTowODoxNS4xMDAyMjAxLTA0OjAwIn0.bnDtAq_5QRrmfk3RaM8l21dxphrTUluqw3SDMt4I4A8",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/v1/user_answers?question_id=3",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"user_answers"
+					],
+					"query": [
+						{
+							"key": "question_id",
+							"value": "3"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: AI Mock Test <View Exam sets>",
+			"id": "38052279-b11e2e41-1925-4813-a814-18122e853a90",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/v1/examsets?skill=speaking",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"examsets"
+					],
+					"query": [
+						{
+							"key": "skill",
+							"value": "speaking"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: AI Mock Test <View Exam Sets>",
+			"id": "38052279-d3a64b1e-594c-4ee2-b50c-a93fc82757a0",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/v1/examsets?skill=speaking",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"examsets"
+					],
+					"query": [
+						{
+							"key": "skill",
+							"value": "speaking"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: AI Mock Test <Start Test>",
+			"id": "38052279-afb84a7b-55dd-43b6-a502-e134360e0b5e",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImY5NTM1NTc3LWQ5YTUtNDEyMy05OWNlLWQxNjA1NTM1YmEwMiIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTIyVDAwOjIwOjQ4LjY2OTM0OS0wNDowMCIsImV4cGlyZWRfYXQiOiIyMDI1LTEwLTIyVDAwOjUwOjQ4LjY2OTM0OS0wNDowMCJ9.s8GlSzBmqu7m86m5iatmbGkiT1PGsFBd1dowOFiQvfE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"mode\": \"practice\",\r\n    \"skill\": \"speaking\",\r\n    \"exam_set_id\": 2,\r\n    \"part1\": true,\r\n    \"part2\": true,\r\n    \"part3\": false,\r\n    \"time_limit\": \"0min\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/start_test",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"start_test"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Page: AI Mock Test <Get Presigned URLs R2 for audio uploads>",
+			"id": "38052279-b43f30ba-3c7a-4849-9df7-6224f2adb8e3",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"test_session_id\": \"42a13932-8124-4450-b1e1-7550fee0e040\",\r\n    \"answers\": {\r\n        \"part1\": { \r\n            \"1\": \"\",\r\n            \"3\": \"\",\r\n            \"92\": \"\",\r\n            \"93\": \"\",\r\n            \"112\": \"\"\r\n        }\r\n }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/get_simulation_upload_urls",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"get_simulation_upload_urls"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Confirm Submisssion",
+			"id": "38052279-840f502e-cd31-4b58-a808-4e91a01e2a6d",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"test_session_id\": \"42a13932-8124-4450-b1e1-7550fee0e040\",\r\n    \"answers\": {\r\n        \"part3\": { \r\n            \"118\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q118_20251015_021251.450.ogg\",\r\n            \"119\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q119_20251015_021251.451.ogg\",\r\n            \"120\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q120_20251015_021251.451.ogg\"\r\n        }\r\n }\r\n}"
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/confirm_simulation_submission",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"confirm_simulation_submission"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "-----------------------------",
+			"id": "38052279-c5edd3dc-f847-43f4-8e2c-779472e264a7",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "PAGE: Dictionary <Search>",
+			"id": "38052279-cc9b7ca3-8984-4e7b-960b-3d986bc13f71",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImY5NTM1NTc3LWQ5YTUtNDEyMy05OWNlLWQxNjA1NTM1YmEwMiIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTIyVDAwOjIwOjQ4LjY2OTM0OS0wNDowMCIsImV4cGlyZWRfYXQiOiIyMDI1LTEwLTIyVDAwOjUwOjQ4LjY2OTM0OS0wNDowMCJ9.s8GlSzBmqu7m86m5iatmbGkiT1PGsFBd1dowOFiQvfE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"mode\": \"practice\",\r\n    \"skill\": \"speaking\",\r\n    \"exam_set_id\": 2,\r\n    \"part1\": true,\r\n    \"part2\": true,\r\n    \"part3\": false,\r\n    \"time_limit\": \"0min\"\r\n}"
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/v1/vocabulary/search?q=com&page_size=5",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"vocabulary",
+						"search"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "com"
+						},
+						{
+							"key": "page_size",
+							"value": "5"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "PAGE: Dictionary <View Vocab Details>",
+			"id": "38052279-bbb4916a-3988-4f02-997f-3d0f0498ec13",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "Untitled Request",
+			"id": "38052279-dcb86517-2ab8-49bc-b44a-38c8cd50e8d6",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": ""
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"id": "38052279-1153c854-248a-4c18-9b11-a05062d066eb",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"id": "38052279-5e5d2a6b-0622-4939-88cc-8004b7d66e3d",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "Untitled Request",
+			"id": "38052279-56042dcc-05e7-4054-8dcd-f16645c005f7",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": ""
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"id": "38052279-38f5b428-1b48-4fcf-add7-8ee4ca4143de",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"id": "38052279-126f54f4-e23d-467d-858e-8a0e9f4907f9",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "baseURL",
+			"value": "",
+			"type": "default"
+		}
+	]
+}
