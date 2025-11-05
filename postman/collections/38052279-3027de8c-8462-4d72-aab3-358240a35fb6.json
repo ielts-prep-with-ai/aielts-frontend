@@ -25,6 +25,65 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Login By Oauth",
+					"id": "38052279-6b8a341c-92c6-44e0-a3d5-86fae70f2d6a",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5MDFkZjgyLWU0NDItNGQwMS04YWU4LThmOGVkYzc3Mzg0ZSIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIzOjIxOjExLjgyMDgxNjMtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNVQyMzo1MToxMS44MjA4MTYzLTA0OjAwIn0.yseKvcEEvYwvc_yzy9Go1JUY0DYK0SwKRzj_gxSymeA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "user_id",
+									"value": "",
+									"description": "nhớ lưu user_id lúc login",
+									"type": "text",
+									"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
+								},
+								{
+									"key": "question_id",
+									"value": "1",
+									"type": "text",
+									"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
+								},
+								{
+									"key": "audio_file",
+									"description": "tạo audio dạng .ogg r đính kèm",
+									"type": "file",
+									"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
+									"value": null
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/v1/auth/google",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"google"
+							]
+						}
+					},
+					"response": []
 				}
 			],
 			"id": "38052279-2a4c7f3c-11bb-4ed3-b0a6-cc31cfb7422d"
@@ -222,65 +281,6 @@
 							"key": "user_id",
 							"value": "1111111"
 						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Login By Oauth",
-			"id": "38052279-6b8a341c-92c6-44e0-a3d5-86fae70f2d6a",
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"auth": {
-					"type": "bearer",
-					"bearer": [
-						{
-							"key": "token",
-							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5MDFkZjgyLWU0NDItNGQwMS04YWU4LThmOGVkYzc3Mzg0ZSIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIzOjIxOjExLjgyMDgxNjMtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNVQyMzo1MToxMS44MjA4MTYzLTA0OjAwIn0.yseKvcEEvYwvc_yzy9Go1JUY0DYK0SwKRzj_gxSymeA",
-							"type": "string"
-						}
-					]
-				},
-				"method": "GET",
-				"header": [],
-				"body": {
-					"mode": "formdata",
-					"formdata": [
-						{
-							"key": "user_id",
-							"value": "",
-							"description": "nhớ lưu user_id lúc login",
-							"type": "text",
-							"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
-						},
-						{
-							"key": "question_id",
-							"value": "1",
-							"type": "text",
-							"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
-						},
-						{
-							"key": "audio_file",
-							"description": "tạo audio dạng .ogg r đính kèm",
-							"type": "file",
-							"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
-							"value": null
-						}
-					]
-				},
-				"url": {
-					"raw": "{{baseURL}}/api/v1/auth/google",
-					"host": [
-						"{{baseURL}}"
-					],
-					"path": [
-						"api",
-						"v1",
-						"auth",
-						"google"
 					]
 				}
 			},
