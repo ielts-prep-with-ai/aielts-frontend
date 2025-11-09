@@ -1,13 +1,17 @@
 import { StyleSheet, ScrollView, View, Text, Pressable } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/contexts/auth.context';
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+  const displayName = user?.name?.split(' ')[0] || 'Guest';
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {/* Header Section */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, Sarah!</Text>
+          <Text style={styles.greeting}>Hello, {displayName}!</Text>
           <Text style={styles.subtitle}>Ready for your IELTS practice?</Text>
         </View>
         <View style={styles.profileIconContainer}>

@@ -1,14 +1,27 @@
-import { StyleSheet, View, Text, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/contexts/auth.context';
+import { OAuthProvider } from '@/services/auth.service';
+import { useRouter } from 'expo-router';
+
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login, isLoading } = useAuth();
 
-  const handleOAuthLogin = (provider: string) => {
-    // Navigate to tabs (no actual OAuth logic - UI only)
-    console.log(`Login with ${provider}`);
-    router.replace('/(tabs)');
+  const handleOAuthLogin = async (provider: OAuthProvider) => {
+    try {
+      await login(provider);
+      // Navigation will be handled by the app layout based on auth state
+      router.replace('/(tabs)');
+    } catch (err) {
+      console.error('OAuth Error:', err);
+      Alert.alert(
+        'Login Failed',
+        err instanceof Error ? err.message : 'An error occurred during login',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   return (
@@ -50,9 +63,14 @@ export default function LoginScreen() {
               styles.oauthButton,
               pressed && styles.buttonPressed,
             ]}
-            onPress={() => handleOAuthLogin('Google')}>
+            onPress={() => handleOAuthLogin('Google')}
+            disabled={isLoading}>
             <View style={styles.buttonContent}>
-              <IconSymbol name="g.circle.fill" size={22} color="#EA4335" />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#EA4335" />
+              ) : (
+                <IconSymbol name="g.circle.fill" size={22} color="#EA4335" />
+              )}
               <Text style={styles.buttonText}>Login with Google</Text>
             </View>
           </Pressable>
@@ -63,9 +81,14 @@ export default function LoginScreen() {
               styles.oauthButton,
               pressed && styles.buttonPressed,
             ]}
-            onPress={() => handleOAuthLogin('Facebook')}>
+            onPress={() => handleOAuthLogin('Facebook')}
+            disabled={isLoading}>
             <View style={styles.buttonContent}>
-              <IconSymbol name="f.circle.fill" size={22} color="#1877F2" />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#1877F2" />
+              ) : (
+                <IconSymbol name="f.circle.fill" size={22} color="#1877F2" />
+              )}
               <Text style={styles.buttonText}>Login with Facebook</Text>
             </View>
           </Pressable>
@@ -76,9 +99,14 @@ export default function LoginScreen() {
               styles.oauthButton,
               pressed && styles.buttonPressed,
             ]}
-            onPress={() => handleOAuthLogin('Apple')}>
+            onPress={() => handleOAuthLogin('Apple')}
+            disabled={isLoading}>
             <View style={styles.buttonContent}>
-              <IconSymbol name="apple.logo" size={22} color="#000" />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <IconSymbol name="apple.logo" size={22} color="#000" />
+              )}
               <Text style={styles.buttonText}>Login with apple id</Text>
             </View>
           </Pressable>
