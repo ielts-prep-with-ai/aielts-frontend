@@ -1,8 +1,8 @@
-import { StyleSheet, ScrollView, View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
 import { ApiService } from '@/services/api.service';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface Tag {
   id: number;

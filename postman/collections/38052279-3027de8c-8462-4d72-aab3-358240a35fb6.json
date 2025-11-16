@@ -206,6 +206,105 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Test Redis Worker",
+					"id": "38052279-b2dc613d-e422-423a-aed3-c4e77ded32c6",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5MDFkZjgyLWU0NDItNGQwMS04YWU4LThmOGVkYzc3Mzg0ZSIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTA5LTI1VDIzOjIxOjExLjgyMDgxNjMtMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0wOS0yNVQyMzo1MToxMS44MjA4MTYzLTA0OjAwIn0.yseKvcEEvYwvc_yzy9Go1JUY0DYK0SwKRzj_gxSymeA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "user_id",
+									"value": "",
+									"description": "nhớ lưu user_id lúc login",
+									"type": "text",
+									"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
+								},
+								{
+									"key": "question_id",
+									"value": "1",
+									"type": "text",
+									"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
+								},
+								{
+									"key": "audio_file",
+									"description": "tạo audio dạng .ogg r đính kèm",
+									"type": "file",
+									"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
+									"value": null
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/v1/test_worker",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"test_worker"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Test User ID From Auth Middleware",
+					"id": "38052279-5fee3300-7c17-4a7e-be4f-243192769b26",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI2Mzc4NDEzLTUxY2EtNDdjZC05Y2VkLTc1ZDAxNjJmZmE5NCIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTEwLTAyVDE2OjQxOjExLjc3NDM4NDctMDQ6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0xMC0wMlQxNzoxMToxMS43NzQzODQ3LTA0OjAwIn0.UfrG6O2BK7RHZrn4MY5dU167ycrC8HvuCPCZ_RXk2wk",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8301/api/v1/test_users?user_id=1111111",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8301",
+							"path": [
+								"api",
+								"v1",
+								"test_users"
+							],
+							"query": [
+								{
+									"key": "user_id",
+									"value": "1111111"
+								}
+							]
+						}
+					},
+					"response": []
 				}
 			],
 			"id": "38052279-56374259-488d-490f-85b9-a702f798e527"
@@ -252,6 +351,36 @@
 						}
 					},
 					"response": []
+				}
+			],
+			"id": "38052279-a0cee149-e7aa-4cd2-928a-f04614905150"
+		},
+		{
+			"name": "Web Socket Endpoint",
+			"id": "38052279-6184f561-b121-4163-80c0-87b90b0c34e4",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/v1/ws/feedback ",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"ws",
+						"feedback "
+					],
+					"query": [
+						{
+							"key": null,
+							"value": null,
+							"type": "text",
+							"disabled": true
 				},
 				{
 					"name": "PAGE: Dictionary <Get User Saved Words>",
@@ -1120,6 +1249,86 @@
 			"response": []
 		},
 		{
+			"name": "PAGE: Dictionary <View Vocab Details>",
+			"id": "38052279-bbb4916a-3988-4f02-997f-3d0f0498ec13",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "Untitled Request",
+			"id": "38052279-dcb86517-2ab8-49bc-b44a-38c8cd50e8d6",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": ""
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"id": "38052279-1153c854-248a-4c18-9b11-a05062d066eb",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"id": "38052279-5e5d2a6b-0622-4939-88cc-8004b7d66e3d",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "Untitled Request",
+			"id": "38052279-56042dcc-05e7-4054-8dcd-f16645c005f7",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": ""
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"id": "38052279-38f5b428-1b48-4fcf-add7-8ee4ca4143de",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "Test Submit Answer",
+			"id": "38052279-126f54f4-e23d-467d-858e-8a0e9f4907f9",
 			"name": "New Request",
 			"id": "38052279-57cb16e3-32f3-41c5-8c13-118dd7a6871d",
 			"protocolProfileBehavior": {

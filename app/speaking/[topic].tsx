@@ -1,38 +1,168 @@
-import { StyleSheet, ScrollView, View, Text, Pressable, TextInput } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { ApiService } from '@/services/api.service';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 interface Question {
   id: number;
-  type: 'Official' | 'AI generated';
+  ai_generated: boolean;
   part: number;
-  question: string;
+  question_text: string;
+  question_active: boolean;
+  question_popularity: number;
+  tag_id: number;
+  tag_name: string;
+}
+
+interface ApiResponse {
+  data?: Question[];
+  total?: number;
+  page_index?: number;
+  page_size?: number;
 }
 
 export default function TopicQuestionsScreen() {
   const router = useRouter();
-  const { topic } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  // If file is named [topic].tsx, the ID comes as 'topic' param
+  // If file is named [id].tsx, the ID comes as 'id' param
+  const topicId = params.topic || params.id; // Get ID from route path
+  
   const [activeFilter, setActiveFilter] = useState<'All' | 'AI generated' | 'Official'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'popularity' | 'part'>('popularity');
+  const [pageIndex, setPageIndex] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  // Mock data - replace with API call
-  const questions: Question[] = [
-    { id: 1, type: 'Official', part: 1, question: "What's your full name?" },
-    { id: 2, type: 'Official', part: 1, question: "What's your full name?" },
-    { id: 3, type: 'Official', part: 1, question: "What's your full name?" },
-    { id: 4, type: 'Official', part: 1, question: "What's your full name?" },
-    { id: 5, type: 'Official', part: 1, question: "What's your full name?" },
-    { id: 6, type: 'Official', part: 1, question: "What's your full name?" },
-  ];
+  // Topic ID mapping - not needed if you're getting ID from route
+  const topicNameMap: Record<string, string> = {
+    '1': 'Education',
+    '2': 'Technology',
+    '3': 'Travel & Tourism',
+    '4': 'Environment',
+    '5': 'Health & Fitness',
+    '6': 'Work & Career',
+    '7': 'Personal Information',
+  };
 
-  const topicTitle = topic === 'education' ? 'Education' :
-                     topic === 'technology' ? 'Technology' :
-                     topic === 'travel' ? 'Travel & Tourism' :
-                     topic === 'environment' ? 'Environment' :
-                     topic === 'health' ? 'Health & Fitness' :
-                     topic === 'work' ? 'Work & Career' :
-                     'Personal Information';
+  const topicTitle = topicNameMap[topicId as string] || 'Practice Questions';
+
+  // Fetch questions from API
+  const fetchQuestions = async (append = false) => {
+    try {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      
+      const params = new URLSearchParams({
+        topic_id: topicId?.toString() || '1',
+        page_index: (append ? pageIndex : 1).toString(),
+        page_size: '10',
+        sort_by: sortBy,
+      });
+
+      const response = await ApiService.get<any>(`/questions?${params.toString()}`);
+      
+      // Handle different response structures
+      let questionData: Question[] = [];
+      
+      if (Array.isArray(response)) {
+        questionData = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        questionData = response.data;
+      } else if (response.questions && Array.isArray(response.questions)) {
+        questionData = response.questions;
+      }
+      
+      // Check if there are more questions to load
+      if (questionData.length < 10) {
+        setHasMore(false);
+      }
+      
+      if (append) {
+        setQuestions(prev => [...prev, ...questionData]);
+      } else {
+        setQuestions(questionData);
+        setHasMore(true);
+      }
+    } catch (err) {
+      setError('Failed to load questions. Please try again.');
+      console.error('Error fetching questions:', err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    if (topicId) {
+      setPageIndex(1);
+      fetchQuestions(false);
+    }
+  }, [topicId, sortBy]);
+
+  // Load more when pageIndex changes
+  useEffect(() => {
+    if (topicId && pageIndex > 1) {
+      fetchQuestions(true);
+    }
+  }, [pageIndex]);
+
+  // Filter questions based on active filter and search query
+  const filteredQuestions = Array.isArray(questions) ? questions.filter((q) => {
+    const questionType = q.ai_generated ? 'AI generated' : 'Official';
+    const matchesFilter = activeFilter === 'All' || questionType === activeFilter;
+    const matchesSearch = q.question_text.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  }) : [];
+
+  const toggleSortBy = () => {
+    setSortBy((prev) => (prev === 'popularity' ? 'part' : 'popularity'));
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      setPageIndex(prev => prev + 1);
+    }
+  };
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 20;
+    
+    // Check if scrolled to bottom
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+      handleLoadMore();
+    }
+  };
+
+  if (loading && questions.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol name="chevron.left" size={28} color="#000" />
+          </Pressable>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{topicTitle}</Text>
+            <Text style={styles.headerSubtitle}>Practice questions</Text>
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00B8FF" />
+          <Text style={styles.loadingText}>Loading questions...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -59,8 +189,10 @@ export default function TopicQuestionsScreen() {
           />
           <IconSymbol name="magnifyingglass" size={20} color="#000" />
         </View>
-        <Pressable style={styles.sortButton}>
-          <Text style={styles.sortButtonText}>sort by Part</Text>
+        <Pressable style={styles.sortButton} onPress={toggleSortBy}>
+          <Text style={styles.sortButtonText}>
+            sort by {sortBy === 'popularity' ? 'Popularity' : 'Part'}
+          </Text>
           <IconSymbol name="chevron.down" size={16} color="#fff" />
         </Pressable>
       </View>
@@ -93,25 +225,67 @@ export default function TopicQuestionsScreen() {
         </Pressable>
       </View>
 
+      {/* Error Message */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryButton} onPress={() => fetchQuestions(false)}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Questions List */}
-      <ScrollView style={styles.questionsList} contentContainerStyle={styles.questionsListContent}>
-        {questions.map((q) => (
-          <View key={q.id} style={styles.questionCard}>
-            <View style={styles.questionHeader}>
-              <Text style={styles.questionType}>{q.type}</Text>
-              <View style={styles.partBadge}>
-                <Text style={styles.partBadgeText}>Part {q.part}</Text>
-              </View>
-            </View>
-            <Text style={styles.questionText}>{q.question}</Text>
-            <Pressable
-              style={styles.startButton}
-              onPress={() => router.push(`/speaking/practice/${q.id}?topic=${topic}`)}
-            >
-              <Text style={styles.startButtonText}>Start Practice</Text>
-            </Pressable>
+      <ScrollView 
+        style={styles.questionsList} 
+        contentContainerStyle={styles.questionsListContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
+      >
+        {filteredQuestions.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {searchQuery ? 'No questions match your search' : 'No questions available'}
+            </Text>
           </View>
-        ))}
+        ) : (
+          <>
+            {filteredQuestions.map((q) => (
+              <View key={q.id} style={styles.questionCard}>
+                <View style={styles.questionHeader}>
+                  <Text style={styles.questionType}>
+                    {q.ai_generated ? 'AI generated' : 'Official'}
+                  </Text>
+                  <View style={styles.partBadge}>
+                    <Text style={styles.partBadgeText}>Part {q.part}</Text>
+                  </View>
+                </View>
+                <Text style={styles.questionText}>{q.question_text}</Text>
+                <Pressable
+                  style={styles.startButton}
+                  onPress={() => router.push(`/speaking/practice/${q.id}?topicId=${topicId}`)}
+                >
+                  <Text style={styles.startButtonText}>Start Practice</Text>
+                </Pressable>
+              </View>
+            ))}
+            
+            {/* Loading More Indicator */}
+            {loadingMore && (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#00B8FF" />
+                <Text style={styles.loadingMoreText}>Loading more...</Text>
+              </View>
+            )}
+            
+            {/* End of List Indicator */}
+            {!hasMore && filteredQuestions.length > 0 && (
+              <View style={styles.endOfListContainer}>
+                <Text style={styles.endOfListText}>No more questions</Text>
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -271,5 +445,70 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#fff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  errorContainer: {
+    backgroundColor: '#FFEBEE',
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#C62828',
+    flex: 1,
+  },
+  retryButton: {
+    backgroundColor: '#C62828',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 10,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  endOfListContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  endOfListText: {
+    fontSize: 14,
+    color: '#999',
   },
 });
