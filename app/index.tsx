@@ -9,27 +9,60 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/contexts/auth.context';
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { isLoading, isAuthenticated } = useAuth();
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.8);
 
   useEffect(() => {
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🎬 [SPLASH SCREEN] Component Mounted');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🎬 [SPLASH SCREEN] Initial state:');
+    console.log('   - isLoading:', isLoading);
+    console.log('   - isAuthenticated:', isAuthenticated);
+
     // Fade in animation
+    console.log('✨ [SPLASH SCREEN] Starting fade-in animation...');
     opacity.value = withTiming(1, { duration: 800 });
     scale.value = withSequence(
       withTiming(1.1, { duration: 400 }),
       withTiming(1, { duration: 400 })
     );
 
-    // Navigate to login after 2 seconds
+    // Navigate based on authentication status
+    console.log('⏱️ [SPLASH SCREEN] Setting 2.5s timer for navigation check...');
     const timer = setTimeout(() => {
-      router.replace('/login');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('⏰ [SPLASH SCREEN] Timer triggered - checking auth status');
+      console.log('⏰ [SPLASH SCREEN] isLoading:', isLoading);
+      console.log('⏰ [SPLASH SCREEN] isAuthenticated:', isAuthenticated);
+
+      if (!isLoading) {
+        console.log('✅ [SPLASH SCREEN] Auth check complete, ready to navigate');
+        if (isAuthenticated) {
+          console.log('🧭 [SPLASH SCREEN] User authenticated → navigating to tabs');
+          router.replace('/(tabs)');
+          console.log('✅ [SPLASH SCREEN] Navigation to tabs complete');
+        } else {
+          console.log('🧭 [SPLASH SCREEN] User not authenticated → navigating to login');
+          router.replace('/login');
+          console.log('✅ [SPLASH SCREEN] Navigation to login complete');
+        }
+      } else {
+        console.log('⏳ [SPLASH SCREEN] Still loading, waiting...');
+      }
+      console.log('═══════════════════════════════════════════════════════════');
     }, 2500);
 
-    return () => clearTimeout(timer);
-  }, []);
+    return () => {
+      console.log('🧹 [SPLASH SCREEN] Cleanup - clearing timer');
+      clearTimeout(timer);
+    };
+  }, [isLoading, isAuthenticated]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

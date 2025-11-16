@@ -1,103 +1,119 @@
-import { StyleSheet, ScrollView, View, Text, Pressable } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, Pressable, Image } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/contexts/auth.context';
+import { useTheme } from '@/contexts/theme.context';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+  const { colors } = useTheme();
+  const router = useRouter();
+  const displayName = user?.name?.split(' ')[0] || 'Guest';
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
       {/* Header Section */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, Sarah!</Text>
-          <Text style={styles.subtitle}>Ready for your IELTS practice?</Text>
+          <Text style={[styles.greeting, { color: colors.text }]}>Hello, {displayName}!</Text>
+          <Text style={[styles.subtitle, { color: colors.text }]}>Ready for your IELTS practice?</Text>
         </View>
         <View style={styles.profileIconContainer}>
-          <IconSymbol name="person.circle.fill" size={50} color="#000" />
+          {user?.picture ? (
+            <Image
+              source={{ uri: user.picture }}
+              style={styles.profileAvatar}
+              resizeMode="cover"
+            />
+          ) : (
+            <IconSymbol name="person.circle.fill" size={50} color={colors.text} />
+          )}
         </View>
       </View>
 
       {/* Progress Card */}
-      <View style={styles.progressCard}>
-        <Text style={styles.progressTitle}>Your Progress</Text>
-        <Text style={styles.aimText}>Your aim: 7.5</Text>
+      <View style={[styles.progressCard, { backgroundColor: colors.progressCardBackground }]}>
+        <Text style={[styles.progressTitle, { color: colors.progressCardText }]}>Your Progress</Text>
+        <Text style={[styles.aimText, { color: colors.progressCardText }]}>Your aim: 7.5</Text>
         <View style={styles.progressBarContainer}>
           <View style={styles.progressBar} />
         </View>
-        <Text style={styles.streakText}>15 days streak - 142 exercises completed</Text>
+        <Text style={[styles.streakText, { color: colors.progressCardText }]}>15 days streak - 142 exercises completed</Text>
       </View>
 
       {/* Practice by Skills Section */}
-      <Text style={styles.sectionTitle}>Practice by Skills</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>Practice by Skills</Text>
       <View style={styles.skillsGrid}>
         {/* Listening */}
-        <Pressable style={styles.skillCard}>
+        <Pressable style={[styles.skillCard, { backgroundColor: colors.cardBackground }]} onPress={() => router.push('/listening')}>
           <View style={styles.iconContainer}>
-            <IconSymbol name="headphones" size={50} color="#3BB9F0" />
+            <IconSymbol name="headphones" size={50} color={colors.primary} />
           </View>
-          <Text style={styles.skillName}>Listening</Text>
-          <Text style={styles.skillPercentage}>85%</Text>
+          <Text style={[styles.skillName, { color: colors.text }]}>Listening</Text>
+          <Text style={[styles.skillPercentage, { color: colors.primary }]}>85%</Text>
         </Pressable>
 
         {/* Reading */}
-        <Pressable style={styles.skillCard}>
+        <Pressable style={[styles.skillCard, { backgroundColor: colors.cardBackground }]} onPress={() => router.push('/reading')}>
           <View style={styles.iconContainer}>
-            <IconSymbol name="book.fill" size={50} color="#3BB9F0" />
+            <IconSymbol name="book.fill" size={50} color={colors.primary} />
           </View>
-          <Text style={styles.skillName}>Reading</Text>
-          <Text style={styles.skillPercentage}>78%</Text>
+          <Text style={[styles.skillName, { color: colors.text }]}>Reading</Text>
+          <Text style={[styles.skillPercentage, { color: colors.primary }]}>78%</Text>
         </Pressable>
 
         {/* Writing */}
-        <Pressable style={styles.skillCard}>
+        <Pressable style={[styles.skillCard, { backgroundColor: colors.cardBackground }]} onPress={() => router.push('/writing')}>
           <View style={styles.iconContainer}>
-            <IconSymbol name="pencil.and.list.clipboard" size={50} color="#3BB9F0" />
+            <IconSymbol name="pencil.and.list.clipboard" size={50} color={colors.primary} />
           </View>
-          <Text style={styles.skillName}>Writing</Text>
-          <Text style={styles.skillPercentage}>72%</Text>
+          <Text style={[styles.skillName, { color: colors.text }]}>Writing</Text>
+          <Text style={[styles.skillPercentage, { color: colors.primary }]}>72%</Text>
         </Pressable>
 
         {/* Speaking */}
-        <Pressable style={styles.skillCard}>
+        <Pressable style={[styles.skillCard, { backgroundColor: colors.cardBackground }]} onPress={() => router.push('/speaking')}>
           <View style={styles.iconContainer}>
-            <IconSymbol name="bubble.left.and.text.bubble.right.fill" size={50} color="#3BB9F0" />
+            <IconSymbol name="bubble.left.and.text.bubble.right.fill" size={50} color={colors.primary} />
           </View>
-          <Text style={styles.skillName}>Speaking</Text>
-          <Text style={styles.skillPercentage}>80%</Text>
+          <Text style={[styles.skillName, { color: colors.text }]}>Speaking</Text>
+          <Text style={[styles.skillPercentage, { color: colors.primary }]}>80%</Text>
         </Pressable>
       </View>
 
       {/* Quick Action Section */}
-      <Text style={styles.sectionTitle}>Quick Action</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Action</Text>
       <View style={styles.quickActionContainer}>
         {/* AI Mock Test */}
-        <Pressable style={styles.quickActionItem}>
+        <Pressable style={[styles.quickActionItem, { backgroundColor: colors.cardBackground }]} onPress={() => router.push('/mock-test')}>
           <View style={styles.quickActionIcon}>
-            <IconSymbol name="cpu" size={40} color="#3BB9F0" />
+            <IconSymbol name="cpu" size={40} color={colors.primary} />
           </View>
           <View style={styles.quickActionText}>
-            <Text style={styles.quickActionTitle}>AI Mock Test</Text>
-            <Text style={styles.quickActionPercentage}>72%</Text>
+            <Text style={[styles.quickActionTitle, { color: colors.text }]}>AI Mock Test</Text>
+            <Text style={[styles.quickActionPercentage, { color: colors.textSecondary }]}>72%</Text>
           </View>
         </Pressable>
 
         {/* Vocabulary Builder */}
-        <Pressable style={styles.quickActionItem}>
+        <Pressable style={[styles.quickActionItem, { backgroundColor: colors.cardBackground }]} onPress={() => router.push('/vocabulary')}>
           <View style={styles.quickActionIcon}>
-            <IconSymbol name="book.pages.fill" size={40} color="#3BB9F0" />
+            <IconSymbol name="book.pages.fill" size={40} color={colors.primary} />
           </View>
           <View style={styles.quickActionText}>
-            <Text style={styles.quickActionTitle}>Vocabulary Builder</Text>
-            <Text style={styles.quickActionPercentage}>72%</Text>
+            <Text style={[styles.quickActionTitle, { color: colors.text }]}>Vocabulary Builder</Text>
+            <Text style={[styles.quickActionPercentage, { color: colors.textSecondary }]}>72%</Text>
           </View>
         </Pressable>
 
         {/* Speaking Practice */}
-        <Pressable style={styles.quickActionItem}>
+        <Pressable style={[styles.quickActionItem, { backgroundColor: colors.cardBackground }]} onPress={() => router.push('/speaking')}>
           <View style={styles.quickActionIcon}>
-            <IconSymbol name="mic.fill" size={40} color="#3BB9F0" />
+            <IconSymbol name="mic.fill" size={40} color={colors.primary} />
           </View>
           <View style={styles.quickActionText}>
-            <Text style={styles.quickActionTitle}>Speaking Practice</Text>
-            <Text style={styles.quickActionPercentage}>72%</Text>
+            <Text style={[styles.quickActionTitle, { color: colors.text }]}>Speaking Practice</Text>
+            <Text style={[styles.quickActionPercentage, { color: colors.textSecondary }]}>72%</Text>
           </View>
         </Pressable>
       </View>
@@ -132,6 +148,11 @@ const styles = StyleSheet.create({
   },
   profileIconContainer: {
     // Empty for now
+  },
+  profileAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   progressCard: {
     backgroundColor: '#3BB9F0',
