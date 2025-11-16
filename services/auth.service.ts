@@ -226,14 +226,25 @@ export const AuthService = {
       const extractedUserId = rawData.user_id || rawData.ID || rawData.id || rawData.UserId || rawData.userId || '';
       const extractedEmail = rawData.email || rawData.Email || rawData.user_email || `user_${rawData.user_id}@aielts.app`;
       const extractedName = rawData.username || rawData.name || rawData.Name || rawData.DisplayName || rawData.displayName || rawData.email || `User ${rawData.user_id}`;
-      const extractedPicture = rawData.picture || rawData.Picture || rawData.profile_picture || rawData.ProfilePicture || rawData.profilePicture;
+      const extractedPicture = rawData.picture || rawData.Picture || rawData.profile_picture || rawData.ProfilePicture || rawData.profilePicture || rawData.avatar || rawData.Avatar || rawData.image_url || rawData.imageUrl || rawData.photo || rawData.Photo;
 
       console.log('  🔑 token:', extractedToken ? '✅ Found' : '❌ NOT FOUND');
+      if (extractedToken) {
+        console.log('  🔑 ACCESS TOKEN FROM BACKEND:', extractedToken);
+        console.log('  🔑 Token preview:', extractedToken.substring(0, 50) + '...');
+      }
       console.log('  🔄 refreshToken:', extractedRefreshToken ? '✅ Found' : '❌ NOT FOUND');
+      if (extractedRefreshToken) {
+        console.log('  🔄 REFRESH TOKEN FROM BACKEND:', extractedRefreshToken);
+        console.log('  🔄 Refresh token preview:', extractedRefreshToken.substring(0, 50) + '...');
+      }
       console.log('  👤 user.id:', extractedUserId || '❌ NOT FOUND');
       console.log('  📧 user.email:', extractedEmail);
       console.log('  📝 user.name:', extractedName);
       console.log('  🖼️  user.picture:', extractedPicture ? '✅ Found' : '❌ NOT FOUND');
+      if (extractedPicture) {
+        console.log('  🖼️  Picture URL:', extractedPicture);
+      }
       console.log('\n');
 
       const authData: AuthData = {
@@ -270,6 +281,22 @@ export const AuthService = {
       }
 
       console.log('✅ Validation passed');
+
+      console.log('');
+      console.log('🔑 ═══════════════════════════════════════════════════════════');
+      console.log('🔑 ACCESS TOKEN FROM BACKEND:');
+      console.log('🔑 ═══════════════════════════════════════════════════════════');
+      console.log(authData.token);
+      console.log('🔑 ═══════════════════════════════════════════════════════════');
+      if (authData.refreshToken) {
+        console.log('🔄 ═══════════════════════════════════════════════════════════');
+        console.log('🔄 REFRESH TOKEN FROM BACKEND:');
+        console.log('🔄 ═══════════════════════════════════════════════════════════');
+        console.log(authData.refreshToken);
+        console.log('🔄 ═══════════════════════════════════════════════════════════');
+      }
+      console.log('');
+
       console.log('💾 Storing tokens in secure storage...');
       await this.storeAuthData(authData);
       console.log('✅ Tokens stored successfully!');
@@ -464,6 +491,13 @@ export const AuthService = {
 
       const data = await response.json();
       console.log('✅ [REFRESH TOKEN] New access token received');
+      console.log('🔑 [REFRESH TOKEN] NEW ACCESS TOKEN FROM BACKEND:', data.accessToken);
+      console.log('🔑 [REFRESH TOKEN] Token preview:', data.accessToken ? data.accessToken.substring(0, 50) + '...' : 'N/A');
+
+      if (data.refreshToken) {
+        console.log('🔄 [REFRESH TOKEN] NEW REFRESH TOKEN FROM BACKEND:', data.refreshToken);
+        console.log('🔄 [REFRESH TOKEN] Refresh token preview:', data.refreshToken.substring(0, 50) + '...');
+      }
 
       // Store new access token
       await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.accessToken);

@@ -51,6 +51,9 @@ class ApiServiceClass {
     const headers = new Headers(fetchOptions.headers);
     if (token && !skipAuth) {
       headers.set('Authorization', `Bearer ${token}`);
+      console.log('🔑 [API] ACCESS TOKEN BEING SENT IN BEARER HEADER:');
+      console.log('🔑 [API]', token);
+      console.log('🔑 [API] Token preview:', token.substring(0, 50) + '...');
     }
     if (!headers.has('Content-Type') && fetchOptions.body) {
       headers.set('Content-Type', 'application/json');
@@ -77,6 +80,9 @@ class ApiServiceClass {
         });
 
         // Retry with new token
+        console.log('🔑 [API] USING REFRESHED TOKEN IN BEARER HEADER:');
+        console.log('🔑 [API]', newToken);
+        console.log('🔑 [API] Token preview:', newToken.substring(0, 50) + '...');
         headers.set('Authorization', `Bearer ${newToken}`);
         response = await fetch(url, {
           ...fetchOptions,
@@ -97,6 +103,9 @@ class ApiServiceClass {
           this.onTokenRefreshed(newToken);
 
           // Retry original request with new token
+          console.log('🔑 [API] RETRYING WITH NEW REFRESHED TOKEN IN BEARER HEADER:');
+          console.log('🔑 [API]', newToken);
+          console.log('🔑 [API] Token preview:', newToken.substring(0, 50) + '...');
           headers.set('Authorization', `Bearer ${newToken}`);
           response = await fetch(url, {
             ...fetchOptions,

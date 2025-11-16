@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/auth.context';
+import { ThemeProvider as CustomThemeProvider } from '@/contexts/theme.context';
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
@@ -98,6 +99,13 @@ function RootLayoutNav() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+        <Stack.Screen name="speaking" options={{ headerShown: false }} />
+        <Stack.Screen name="reading" options={{ headerShown: false }} />
+        <Stack.Screen name="writing" options={{ headerShown: false }} />
+        <Stack.Screen name="listening" options={{ headerShown: false }} />
+        <Stack.Screen name="vocabulary" options={{ headerShown: false }} />
+        <Stack.Screen name="mock-test" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
@@ -107,8 +115,10 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <CustomThemeProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </CustomThemeProvider>
   );
 }
