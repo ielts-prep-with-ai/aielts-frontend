@@ -3,6 +3,7 @@ import { ApiService } from '@/services/api.service';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as Speech from 'expo-speech';
 
 interface Question {
   id: number;
@@ -38,6 +39,7 @@ export default function TopicQuestionsScreen() {
   const [sortBy, setSortBy] = useState<'popularity' | 'part'>('popularity');
   const [pageIndex, setPageIndex] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [speakingQuestionId, setSpeakingQuestionId] = useState<number | null>(null);
 
   // Topic ID mapping - not needed if you're getting ID from route
   const topicNameMap: Record<string, string> = {
@@ -70,10 +72,10 @@ export default function TopicQuestionsScreen() {
       });
 
       const response = await ApiService.get<any>(`/questions?${params.toString()}`);
-      
+
       // Handle different response structures
       let questionData: Question[] = [];
-      
+
       if (Array.isArray(response)) {
         questionData = response;
       } else if (response.data && Array.isArray(response.data)) {
@@ -81,12 +83,18 @@ export default function TopicQuestionsScreen() {
       } else if (response.questions && Array.isArray(response.questions)) {
         questionData = response.questions;
       }
-      
+
+      console.log('[TopicQuestions] Fetched questions:', questionData.length);
+      if (questionData.length > 0) {
+        console.log('[TopicQuestions] First question ID:', questionData[0].id);
+        console.log('[TopicQuestions] Question IDs:', questionData.map(q => q.id));
+      }
+
       // Check if there are more questions to load
       if (questionData.length < 10) {
         setHasMore(false);
       }
-      
+
       if (append) {
         setQuestions(prev => [...prev, ...questionData]);
       } else {
@@ -116,6 +124,13 @@ export default function TopicQuestionsScreen() {
     }
   }, [pageIndex]);
 
+  // Cleanup: Stop speech when component unmounts
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
+
   // Filter questions based on active filter and search query
   const filteredQuestions = Array.isArray(questions) ? questions.filter((q) => {
     const questionType = q.ai_generated ? 'AI generated' : 'Official';
@@ -137,10 +152,40 @@ export default function TopicQuestionsScreen() {
   const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 20;
-    
+
     // Check if scrolled to bottom
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
       handleLoadMore();
+    }
+  };
+
+  // Handle text-to-speech for question
+  const handleSpeakQuestion = async (questionId: number, questionText: string) => {
+    try {
+      // If this question is already speaking, stop it
+      if (speakingQuestionId === questionId) {
+        await Speech.stop();
+        setSpeakingQuestionId(null);
+        return;
+      }
+
+      // Stop any ongoing speech
+      await Speech.stop();
+
+      // Start speaking the question
+      setSpeakingQuestionId(questionId);
+
+      Speech.speak(questionText, {
+        language: 'en-GB', // British English - sounds more natural for IELTS
+        pitch: 1.05, // Slightly higher pitch for more natural tone
+        rate: 0.85, // Slower, more conversational pace
+        onDone: () => setSpeakingQuestionId(null),
+        onStopped: () => setSpeakingQuestionId(null),
+        onError: () => setSpeakingQuestionId(null),
+      });
+    } catch (error) {
+      console.error('[TTS] Error speaking question:', error);
+      setSpeakingQuestionId(null);
     }
   };
 
@@ -260,10 +305,32 @@ export default function TopicQuestionsScreen() {
                     <Text style={styles.partBadgeText}>Part {q.part}</Text>
                   </View>
                 </View>
-                <Text style={styles.questionText}>{q.question_text}</Text>
+
+                {/* Question text with speaker icon */}
+                <View style={styles.questionTextContainer}>
+                  <Text style={styles.questionText}>{q.question_text}</Text>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.speakerButton,
+                      speakingQuestionId === q.id && styles.speakerButtonActive,
+                      pressed && { transform: [{ scale: 0.9 }] }
+                    ]}
+                    onPress={() => handleSpeakQuestion(q.id, q.question_text)}
+                  >
+                    <IconSymbol
+                      name={speakingQuestionId === q.id ? "speaker.wave.3.fill" : "speaker.wave.2.fill"}
+                      size={22}
+                      color={speakingQuestionId === q.id ? "#00B8FF" : "#666"}
+                    />
+                  </Pressable>
+                </View>
+
                 <Pressable
                   style={styles.startButton}
-                  onPress={() => router.push(`/speaking/practice/${q.id}?topicId=${topicId}`)}
+                  onPress={() => {
+                    console.log('[TopicQuestions] Navigating to question ID:', q.id);
+                    router.push(`/speaking/practice/${q.id}?topicId=${topicId}`);
+                  }}
                 >
                   <Text style={styles.startButtonText}>Start Practice</Text>
                 </Pressable>
@@ -428,11 +495,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
+  questionTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+  },
   questionText: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
-    marginBottom: 12,
+  },
+  speakerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  speakerButtonActive: {
+    backgroundColor: '#E6F7FF',
+    borderWidth: 1,
+    borderColor: '#00B8FF',
   },
   startButton: {
     backgroundColor: '#FF8C00',

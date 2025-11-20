@@ -4,6 +4,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/auth.context';
 import { useTheme } from '@/contexts/theme.context';
 import { useState } from 'react';
+import { UsersService } from '@/services';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -57,6 +58,68 @@ export default function ProfileScreen() {
 
   const handleAbout = () => {
     Alert.alert('About', 'AI IELTS v1.0.0\n\nYour personal IELTS preparation companion powered by AI.');
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: confirmDeleteAccount,
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteAccount = async () => {
+    try {
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[PROFILE] ⚠️  Deleting user account...');
+      console.log('═══════════════════════════════════════════════════════════');
+
+      const result = await UsersService.deleteAccount();
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[PROFILE] ✅ ACCOUNT DELETED SUCCESSFULLY');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[PROFILE] Result:', result);
+      console.log('═══════════════════════════════════════════════════════════');
+
+      // Logout and clear local data
+      await logout();
+
+      Alert.alert(
+        'Account Deleted',
+        'Your account has been permanently deleted.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/login'),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[PROFILE] ❌ FAILED TO DELETE ACCOUNT');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[PROFILE] Error:', error);
+      if (error instanceof Error) {
+        console.error('[PROFILE] Error message:', error.message);
+      }
+      console.error('═══════════════════════════════════════════════════════════');
+
+      Alert.alert(
+        'Delete Failed',
+        error instanceof Error ? error.message : 'Failed to delete account. Please try again.'
+      );
+    }
   };
 
   return (
@@ -213,6 +276,12 @@ export default function ProfileScreen() {
       <Pressable style={styles.logoutButton} onPress={handleLogout}>
         <IconSymbol name="rectangle.portrait.and.arrow.right" size={24} color="#fff" />
         <Text style={styles.logoutButtonText}>Logout</Text>
+      </Pressable>
+
+      {/* Delete Account Button */}
+      <Pressable style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+        <IconSymbol name="trash.fill" size={20} color="#FF3B30" />
+        <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
       </Pressable>
 
       <Text style={[styles.version, { color: colors.textSecondary }]}>Version 1.0.0</Text>
@@ -372,6 +441,23 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     color: '#fff',
     fontSize: 17,
+    fontWeight: '600',
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+  },
+  deleteAccountButtonText: {
+    color: '#FF3B30',
+    fontSize: 16,
     fontWeight: '600',
   },
   version: {

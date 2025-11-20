@@ -73,7 +73,10 @@ export default function SpeakingScreen() {
   };
 
   // Helper function to get topic description from tags
-  const getTopicDescription = (tags: Tag[]): string => {
+  const getTopicDescription = (tags: Tag[] | null): string => {
+    if (!tags || tags.length === 0) {
+      return 'No tags available';
+    }
     return tags.map(tag => tag.tag).join(', ');
   };
 

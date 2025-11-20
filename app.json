@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aielts.frontend"
+      "bundleIdentifier": "com.aielts.frontend",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone to record your IELTS speaking practice answers."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,6 +25,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.aielts.frontend",
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -32,7 +38,10 @@
               "host": "callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -53,7 +62,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

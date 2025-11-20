@@ -436,13 +436,36 @@ export const AuthService = {
 
   /**
    * Logout user
+   * GET /auth/logout/google
    */
   async logout(): Promise<void> {
     console.log('═══════════════════════════════════════════════════════════');
     console.log('🚪 [LOGOUT] Starting logout process...');
     console.log('═══════════════════════════════════════════════════════════');
-    console.log('🚪 [LOGOUT] Removing keys:', [AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, USER_DATA_KEY]);
+
     try {
+      // Get current token before clearing
+      const token = await this.getToken();
+
+      // Call backend logout endpoint if we have a token
+      if (token) {
+        console.log('🚪 [LOGOUT] Calling backend logout endpoint...');
+        try {
+          await fetch(`${API_BASE_URL}/auth/logout/google`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          console.log('✅ [LOGOUT] Backend logout successful');
+        } catch (error) {
+          console.error('⚠️ [LOGOUT] Backend logout failed, continuing with local cleanup:', error);
+          // Continue with local cleanup even if backend call fails
+        }
+      }
+
+      // Clear local storage
+      console.log('🚪 [LOGOUT] Removing keys:', [AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, USER_DATA_KEY]);
       await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
       await SecureStore.deleteItemAsync(USER_DATA_KEY);
@@ -459,6 +482,7 @@ export const AuthService = {
 
   /**
    * Refresh access token using refresh token
+   * POST /token/renew
    */
   async refreshAccessToken(): Promise<string | null> {
     console.log('═══════════════════════════════════════════════════════════');
@@ -474,12 +498,12 @@ export const AuthService = {
       }
 
       console.log('🔄 [REFRESH TOKEN] Calling refresh endpoint...');
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const response = await fetch(`${API_BASE_URL}/token/renew`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
 
       if (!response.ok) {
@@ -491,24 +515,19 @@ export const AuthService = {
 
       const data = await response.json();
       console.log('✅ [REFRESH TOKEN] New access token received');
-      console.log('🔑 [REFRESH TOKEN] NEW ACCESS TOKEN FROM BACKEND:', data.accessToken);
-      console.log('🔑 [REFRESH TOKEN] Token preview:', data.accessToken ? data.accessToken.substring(0, 50) + '...' : 'N/A');
-
-      if (data.refreshToken) {
-        console.log('🔄 [REFRESH TOKEN] NEW REFRESH TOKEN FROM BACKEND:', data.refreshToken);
-        console.log('🔄 [REFRESH TOKEN] Refresh token preview:', data.refreshToken.substring(0, 50) + '...');
-      }
+      console.log('🔑 [REFRESH TOKEN] NEW ACCESS TOKEN FROM BACKEND:', data.access_token);
+      console.log('🔑 [REFRESH TOKEN] Token preview:', data.access_token ? data.access_token.substring(0, 50) + '...' : 'N/A');
 
       // Store new access token
-      await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.accessToken);
+      await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.access_token);
 
-      // Update refresh token if a new one was provided
-      if (data.refreshToken) {
-        await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refreshToken);
+      // Store new expiration time
+      if (data.access_token_expires_at) {
+        await SecureStore.setItemAsync('access_token_expires_at', data.access_token_expires_at);
       }
 
       console.log('═══════════════════════════════════════════════════════════');
-      return data.accessToken;
+      return data.access_token;
     } catch (error) {
       console.error('═══════════════════════════════════════════════════════════');
       console.error('❌ [REFRESH TOKEN] Error refreshing token:', error);
@@ -516,6 +535,44 @@ export const AuthService = {
       // On error, clear all auth data
       await this.logout();
       return null;
+    }
+  },
+
+  /**
+   * Validate if the current token is still valid
+   * Simply checks if token exists - actual validation happens when making API calls
+   * If token is expired, API calls will return 401 and trigger refresh
+   * Returns true if token exists, false otherwise
+   */
+  async validateToken(): Promise<boolean> {
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🔍 [VALIDATE TOKEN] Checking if token exists...');
+    console.log('═══════════════════════════════════════════════════════════');
+
+    try {
+      const token = await this.getToken();
+
+      if (!token) {
+        console.log('❌ [VALIDATE TOKEN] No token found');
+        console.log('═══════════════════════════════════════════════════════════');
+        return false;
+      }
+
+      console.log('✅ [VALIDATE TOKEN] Token exists');
+      console.log('🔑 [VALIDATE TOKEN] FULL ACCESS TOKEN FROM STORAGE:');
+      console.log('🔑 ═══════════════════════════════════════════════════════════');
+      console.log(token);
+      console.log('🔑 ═══════════════════════════════════════════════════════════');
+      console.log('ℹ️ [VALIDATE TOKEN] Token length:', token.length, 'characters');
+      console.log('ℹ️ [VALIDATE TOKEN] Actual validation will happen on API calls');
+      console.log('ℹ️ [VALIDATE TOKEN] Expired tokens will be auto-refreshed on 401 responses');
+      console.log('═══════════════════════════════════════════════════════════');
+      return true;
+    } catch (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('❌ [VALIDATE TOKEN] Error checking token:', error);
+      console.error('═══════════════════════════════════════════════════════════');
+      return false;
     }
   },
 };

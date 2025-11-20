@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useTheme } from '@/contexts/theme.context';
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import { UsersService } from '@/services';
 
 export default function EditProfileScreen() {
   const { user } = useAuth();
@@ -40,9 +41,34 @@ export default function EditProfileScreen() {
 
     setIsSaving(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[EDIT PROFILE] Updating profile...');
+      console.log('═══════════════════════════════════════════════════════════');
+
+      // Prepare update data
+      const updateData = {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        bio: bio.trim() || undefined,
+        target_band: targetBand.trim() || undefined,
+        picture: profileImage || undefined,
+      };
+
+      console.log('[EDIT PROFILE] Update data:', updateData);
+
+      // Call the API
+      const updatedProfile = await UsersService.updateProfile(updateData);
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[EDIT PROFILE] ✅ PROFILE UPDATED SUCCESSFULLY');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[EDIT PROFILE] Updated profile:', updatedProfile);
+      console.log('═══════════════════════════════════════════════════════════');
+
       setIsSaving(false);
+
       Alert.alert(
         'Success',
         'Profile updated successfully!',
@@ -53,7 +79,23 @@ export default function EditProfileScreen() {
           },
         ]
       );
-    }, 1000);
+    } catch (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[EDIT PROFILE] ❌ FAILED TO UPDATE PROFILE');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[EDIT PROFILE] Error:', error);
+      if (error instanceof Error) {
+        console.error('[EDIT PROFILE] Error message:', error.message);
+      }
+      console.error('═══════════════════════════════════════════════════════════');
+
+      setIsSaving(false);
+
+      Alert.alert(
+        'Update Failed',
+        error instanceof Error ? error.message : 'Failed to update profile. Please try again.'
+      );
+    }
   };
 
   const handleCancel = () => {

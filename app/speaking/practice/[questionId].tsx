@@ -1,7 +1,57 @@
-import { StyleSheet, ScrollView, View, Text, Pressable, Modal } from 'react-native';
+
+import { StyleSheet, ScrollView, View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
+import { QuestionsService, QuestionDetail, AnswersService } from '@/services';
+import { useAudioRecorder, useAudioRecorderState, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, AudioQuality, IOSOutputFormat } from 'expo-audio';
+import type { RecordingOptions } from 'expo-audio';
+import { AuthService } from '@/services/auth.service';
+
+/**
+ * Custom recording preset optimized for backend OGG format requirement
+ *
+ * Platform-specific formats:
+ * - Web: Records in OGG with Opus codec ✅ (no conversion needed)
+ * - Android: Records in WebM ⚠️ (backend converts WebM → OGG)
+ * - iOS: Records in M4A/AAC ⚠️ (backend converts M4A → OGG)
+ *
+ * Backend must handle conversion:
+ * 1. Accept multipart/form-data with 'audio' field
+ * 2. Detect source format from file extension or metadata
+ * 3. Convert M4A and WebM files to OGG using FFmpeg or similar
+ * 4. Process OGG files directly
+ *
+ * Example FFmpeg commands for backend:
+ * - M4A to OGG: ffmpeg -i input.m4a -c:a libvorbis output.ogg
+ * - WebM to OGG: ffmpeg -i input.webm -c:a libvorbis output.ogg
+ */
+const RECORDING_OPTIONS: RecordingOptions = {
+  extension: '.webm', // WebM for Android/Web, will be .m4a on iOS
+  sampleRate: 48000, // Optimal for Opus codec
+  numberOfChannels: 1, // Mono for voice (smaller file size)
+  bitRate: 128000,
+  isMeteringEnabled: true,
+  android: {
+    extension: '.webm',
+    outputFormat: 'webm', // WebM container (similar to OGG)
+    audioEncoder: 'aac', // Android supports AAC encoder with WebM
+    sampleRate: 48000,
+  },
+  ios: {
+    extension: '.m4a',
+    outputFormat: IOSOutputFormat.MPEG4AAC, // iOS doesn't support OGG, using AAC
+    audioQuality: AudioQuality.HIGH,
+    sampleRate: 48000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: {
+    mimeType: 'audio/ogg;codecs=opus', // OGG with Opus codec for web
+    bitsPerSecond: 128000,
+  },
+};
 
 interface PracticeRecord {
   id: number;
@@ -9,7 +59,7 @@ interface PracticeRecord {
   time: string;
   duration: string;
   rating: number;
-  maxRating: number;
+  maxRating: number; 
   feedback?: {
     fluency: { score: number; description: string };
     vocabulary: { score: number; description: string };
@@ -22,19 +72,28 @@ interface PracticeRecord {
 export default function SpeakingPracticeScreen() {
   const router = useRouter();
   const { questionId, topic } = useLocalSearchParams();
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [time, setTime] = useState(0);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showRecording, setShowRecording] = useState(false);
   const [expandedRecords, setExpandedRecords] = useState<number[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mock question data - replace with API call
-  const question = {
-    part: 2,
-    text: "Tell me about your hometown. What do you like most about living there?",
-  };
+  // Audio recording - using custom preset for OGG/WebM format
+  const audioRecorder = useAudioRecorder(RECORDING_OPTIONS);
+  const recorderState = useAudioRecorderState(audioRecorder, 100);
+  const [time, setTime] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [isRecordingSession, setIsRecordingSession] = useState(false); // Track if in recording mode
+  const [isPausedManual, setIsPausedManual] = useState(false); // Track pause state manually
+
+  // Audio playback - create player with the recording URI
+  const [audioSource, setAudioSource] = useState<string | null>(null);
+  const audioPlayer = useAudioPlayer(audioSource);
+  const playerStatus = useAudioPlayerStatus(audioPlayer);
+
+  // Question state
+  const [question, setQuestion] = useState<QuestionDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Mock practice records - replace with API call
   const practiceRecords: PracticeRecord[] = [
@@ -76,16 +135,45 @@ export default function SpeakingPracticeScreen() {
     { id: 10, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
   ];
 
-  const topicTitle = topic === 'education' ? 'Education' :
-                     topic === 'technology' ? 'Technology' :
-                     topic === 'travel' ? 'Travel & Tourism' :
-                     topic === 'environment' ? 'Environment' :
-                     topic === 'health' ? 'Health & Fitness' :
-                     topic === 'work' ? 'Work & Career' :
-                     'Personal Information';
+  // Use topic name from question data if available, otherwise fall back to param
+  const topicTitle = question?.topic_name || 'Practice Questions';
+
+  // Fetch question data when component mounts
+  useEffect(() => {
+    const fetchQuestion = async () => {
+      if (!questionId) {
+        setError('No question ID provided');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        console.log('[SpeakingPractice] Fetching question with ID:', questionId);
+        const questionData = await QuestionsService.getQuestion(Number(questionId));
+        console.log('[SpeakingPractice] Question data received:', questionData);
+        setQuestion(questionData);
+      } catch (err: any) {
+        console.error('[SpeakingPractice] Failed to fetch question:', err);
+        const errorMessage = err?.message || 'Failed to load question';
+
+        // Check if it's a "not found" error
+        if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+          setError('This question does not exist or has been removed.');
+        } else {
+          setError('Failed to load question. Please try again.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchQuestion();
+  }, [questionId]);
 
   useEffect(() => {
-    if (isRecording && !isPaused) {
+    if (isRecordingSession && !isPausedManual) {
       timerRef.current = setInterval(() => {
         setTime((prev) => prev + 1);
       }, 1000);
@@ -100,7 +188,19 @@ export default function SpeakingPracticeScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isRecording, isPaused]);
+  }, [isRecordingSession, isPausedManual]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recorderState.isRecording) {
+        audioRecorder.stop().then(() => {
+          setAudioModeAsync({ allowsRecording: false });
+        }).catch(console.error);
+      }
+    };
+  }, []);
+
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -108,26 +208,328 @@ export default function SpeakingPracticeScreen() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleRecord = () => {
-    if (!isRecording) {
-      setIsRecording(true);
-      setIsPaused(false);
+  const handleRecordToggle = async () => {
+    if (!isRecordingSession && !recordingUri) {
+      // Start recording
+      try {
+        // Request permissions
+        const { granted } = await requestRecordingPermissionsAsync();
+
+        if (!granted) {
+          Alert.alert('Permission Required', 'Please grant microphone permission to record audio.');
+          return;
+        }
+
+        // Configure audio mode for recording (iOS requires playsInSilentMode: true when recording)
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+
+        // Prepare and start recording
+        await audioRecorder.prepareToRecordAsync();
+        await audioRecorder.record();
+        setIsRecordingSession(true);
+        console.log('[Recording] Started recording');
+      } catch (error) {
+        console.error('[Recording] Failed to start recording:', error);
+        Alert.alert('Recording Error', 'Failed to start recording. Please try again.');
+      }
+    } else if (isRecordingSession) {
+      // Stop recording (Done button)
+      try {
+        await audioRecorder.stop();
+
+        // Get the URI from the recorder
+        const uri = audioRecorder.uri;
+        console.log('[Recording] Stopped recording, URI:', uri);
+
+        // Log file format for debugging
+        const fileExtension = uri?.split('.').pop();
+        console.log('[Recording] File format:', fileExtension);
+        console.log('[Recording] Platform: iOS produces .m4a, Android produces .webm, Web produces .ogg');
+
+        if (!uri) {
+          console.error('[Recording] No URI found after stopping');
+          Alert.alert('Error', 'Failed to get recording file.');
+          setIsRecordingSession(false);
+          return;
+        }
+
+        setRecordingUri(uri);
+        setIsRecordingSession(false);
+
+        // Reset audio mode after recording
+        await setAudioModeAsync({
+          allowsRecording: false,
+        });
+
+        // Load the recording into the audio player
+        setAudioSource(uri);
+        console.log('[Playback] Loaded recording into player:', uri);
+      } catch (error) {
+        console.error('[Recording] Failed to stop recording:', error);
+        Alert.alert('Error', 'Failed to stop recording.');
+        setIsRecordingSession(false);
+      }
     }
   };
 
-  const handlePause = () => {
-    setIsPaused(!isPaused);
+  const handlePause = async () => {
+    if (!isRecordingSession) {
+      console.log('[Recording] Cannot pause - not in recording session');
+      return;
+    }
+
+    try {
+      console.log('[Recording] Current pause state:', isPausedManual);
+      console.log('[Recording] RecorderState:', recorderState);
+
+      if (isPausedManual) {
+        console.log('[Recording] Resuming recording...');
+        await audioRecorder.record();
+        setIsPausedManual(false);
+        console.log('[Recording] Resumed successfully');
+      } else {
+        console.log('[Recording] Pausing recording...');
+        await audioRecorder.pause();
+        setIsPausedManual(true);
+        console.log('[Recording] Paused successfully');
+      }
+    } catch (error) {
+      console.error('[Recording] Failed to pause/resume:', error);
+      Alert.alert('Error', 'Failed to pause/resume recording.');
+    }
   };
 
-  const handleRestart = () => {
-    setIsRecording(false);
-    setIsPaused(false);
-    setTime(0);
+  const handleReset = async () => {
+    try {
+      // Stop playback if playing - only if audio source is loaded
+      if (audioSource && playerStatus.playing) {
+        try {
+          audioPlayer.pause();
+        } catch (pauseError) {
+          console.warn('[Recording] Failed to pause player, continuing reset:', pauseError);
+        }
+      }
+
+      // Clear the audio player source
+      setAudioSource(null);
+
+      // Stop recording if in progress
+      if (isRecordingSession) {
+        try {
+          await audioRecorder.stop();
+        } catch (stopError) {
+          console.warn('[Recording] Failed to stop recorder, continuing reset:', stopError);
+        }
+
+        // Reset audio mode after stopping
+        try {
+          await setAudioModeAsync({
+            allowsRecording: false,
+          });
+        } catch (audioModeError) {
+          console.warn('[Recording] Failed to reset audio mode:', audioModeError);
+        }
+      }
+
+      // Reset all state
+      setTime(0);
+      setRecordingUri(null);
+      setIsRecordingSession(false);
+      setIsPausedManual(false);
+      console.log('[Recording] Reset complete');
+    } catch (error) {
+      console.error('[Recording] Failed to reset:', error);
+      // Force reset state even if errors occurred
+      setTime(0);
+      setRecordingUri(null);
+      setIsRecordingSession(false);
+      setIsPausedManual(false);
+      setAudioSource(null);
+    }
   };
 
-  const handleSubmit = () => {
-    // TODO: Submit to AI Analysis
-    console.log('Submitting to AI Analysis...');
+  const handlePlayPause = async () => {
+    if (!recordingUri || !audioSource) return;
+
+    try {
+      if (playerStatus.playing) {
+        audioPlayer.pause();
+      } else {
+        if (playerStatus.didJustFinish) {
+          audioPlayer.seekTo(0);
+        }
+        audioPlayer.play();
+      }
+    } catch (error) {
+      console.error('[Playback] Failed to play/pause:', error);
+      Alert.alert('Playback Error', 'Failed to play recording. Please try again.');
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      if (!recordingUri) {
+        Alert.alert('No Recording', 'Please record your answer first.');
+        return;
+      }
+
+      if (!questionId) {
+        Alert.alert('Error', 'Question ID is missing.');
+        return;
+      }
+
+      // Stop playback before submitting - only if audio source is loaded
+      if (audioSource && playerStatus.playing) {
+        try {
+          audioPlayer.pause();
+        } catch (pauseError) {
+          console.warn('[AUDIO UPLOAD] Failed to pause player, continuing upload:', pauseError);
+        }
+      }
+
+      // Get file extension and determine MIME type
+      const fileExtension = recordingUri.split('.').pop()?.toLowerCase();
+      let mimeType = 'audio/mpeg'; // default
+      let formatInfo = {
+        extension: fileExtension,
+        platform: Platform.OS,
+        needsConversion: false,
+      };
+
+      // Determine MIME type based on file extension
+      switch (fileExtension) {
+        case 'ogg':
+          mimeType = 'audio/ogg';
+          formatInfo.needsConversion = false;
+          break;
+        case 'webm':
+          mimeType = 'audio/webm';
+          formatInfo.needsConversion = true; // Backend should convert WebM to OGG
+          break;
+        case 'm4a':
+          mimeType = 'audio/mp4';
+          formatInfo.needsConversion = true; // Backend should convert M4A to OGG
+          break;
+        default:
+          mimeType = 'audio/mpeg';
+          formatInfo.needsConversion = true;
+      }
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[AUDIO UPLOAD] Preparing to upload audio file');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[AUDIO UPLOAD] Question ID:', questionId);
+      console.log('[AUDIO UPLOAD] File URI:', recordingUri);
+      console.log('[AUDIO UPLOAD] MIME Type:', mimeType);
+      console.log('[AUDIO UPLOAD] File Extension:', fileExtension);
+      console.log('[AUDIO UPLOAD] Platform:', Platform.OS);
+      console.log('[AUDIO UPLOAD] Duration:', time, 'seconds');
+      console.log('═══════════════════════════════════════════════════════════');
+
+      // Get access token
+      const token = await AuthService.getToken();
+      if (!token) {
+        Alert.alert('Error', 'Please login to submit your answer.');
+        return;
+      }
+
+      console.log('[AUDIO UPLOAD] Access token retrieved');
+      console.log('[AUDIO UPLOAD] Token length:', token.length);
+
+      // Create FormData for file upload
+      const formData = new FormData();
+
+      // Add the audio file with the correct field name 'audio_file'
+      formData.append('audio_file', {
+        uri: recordingUri,
+        type: mimeType,
+        name: `recording_${Date.now()}.${fileExtension}`,
+      } as any);
+
+      console.log('[AUDIO UPLOAD] FormData prepared with audio_file field');
+      console.log('[AUDIO UPLOAD] Sending request to backend...');
+
+      // Send to backend API
+      const API_BASE_URL = 'https://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
+      const response = await fetch(`${API_BASE_URL}/questions/${questionId}/answers`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type - let the browser/React Native set it with boundary
+        },
+        body: formData,
+      });
+
+      console.log('[AUDIO UPLOAD] Response status:', response.status);
+      console.log('[AUDIO UPLOAD] Response status text:', response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('[AUDIO UPLOAD] ❌ UPLOAD FAILED');
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('[AUDIO UPLOAD] Status:', response.status);
+        console.error('[AUDIO UPLOAD] Error response:', errorText);
+        console.error('═══════════════════════════════════════════════════════════');
+
+        let errorMessage = `Failed to submit answer: ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch {
+          if (errorText) errorMessage = errorText;
+        }
+
+        Alert.alert('Upload Failed', errorMessage);
+        return;
+      }
+
+      const result = await response.json();
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[AUDIO UPLOAD] ✅ UPLOAD SUCCESSFUL');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[AUDIO UPLOAD] BACKEND RESPONSE:');
+      console.log(JSON.stringify(result, null, 2));
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[AUDIO UPLOAD] User Answer ID:', result.user_answer_id);
+      console.log('[AUDIO UPLOAD] Status:', result.status);
+      console.log('[AUDIO UPLOAD] Message:', result.message);
+      console.log('═══════════════════════════════════════════════════════════');
+
+      Alert.alert(
+        'Success!',
+        `Your answer has been submitted successfully!\n\nAnswer ID: ${result.user_answer_id}\n\nAI evaluation will be processed shortly.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Reset the recording
+              handleReset();
+            }
+          }
+        ]
+      );
+
+    } catch (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[AUDIO UPLOAD] ❌ CRITICAL ERROR');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[AUDIO UPLOAD] Error:', error);
+      if (error instanceof Error) {
+        console.error('[AUDIO UPLOAD] Error message:', error.message);
+        console.error('[AUDIO UPLOAD] Error stack:', error.stack);
+      }
+      console.error('═══════════════════════════════════════════════════════════');
+
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to submit recording. Please try again.'
+      );
+    }
   };
 
   const toggleRecordExpand = (id: number) => {
@@ -139,6 +541,51 @@ export default function SpeakingPracticeScreen() {
   const handleStartPractice = () => {
     setShowRecording(true);
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol name="chevron.left" size={28} color="#000" />
+          </Pressable>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{topicTitle}</Text>
+            <Text style={styles.headerSubtitle}>Practice questions</Text>
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3BB9F0" />
+          <Text style={styles.loadingText}>Loading question...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error || !question) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol name="chevron.left" size={28} color="#000" />
+          </Pressable>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{topicTitle}</Text>
+            <Text style={styles.headerSubtitle}>Practice questions</Text>
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={48} color="#FF6B6B" />
+          <Text style={styles.errorText}>{error || 'Question not found'}</Text>
+          <Pressable style={styles.retryButton} onPress={() => router.back()}>
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   if (showRecording) {
     return (
@@ -192,46 +639,140 @@ export default function SpeakingPracticeScreen() {
                 <IconSymbol name="speaker.wave.2.fill" size={20} color="#3BB9F0" />
               </Pressable>
             </View>
-            <Text style={styles.questionText}>{question.text}</Text>
+            <Text style={styles.questionText}>{question.question_text}</Text>
           </View>
 
           {/* Recording Section */}
           <View style={styles.recordingCard}>
-            <Text style={styles.recordingStatus}>
-              {isRecording ? (isPaused ? 'Paused' : 'Recording...') : 'Record your answer'}
-            </Text>
-            <Text style={styles.timer}>{formatTime(time)}</Text>
 
-            {/* Control Buttons */}
-            <View style={styles.controls}>
-              <Pressable
-                style={[styles.controlButton, styles.recordButton, isRecording && styles.recordButtonActive]}
-                onPress={handleRecord}
-              >
-                <IconSymbol name="mic.fill" size={32} color={isRecording ? '#fff' : '#FF6B6B'} />
-              </Pressable>
+            {/* STATE 1: Before Recording - Show mic button */}
+            {!isRecordingSession && !recordingUri && (
+              <View style={styles.initialState}>
+                <Text style={styles.instructionText}>Tap the microphone to start recording</Text>
+                <Pressable
+                  style={styles.bigMicButton}
+                  onPress={handleRecordToggle}
+                >
+                  <IconSymbol name="mic.fill" size={64} color="#fff" />
+                </Pressable>
+                <Text style={styles.hintText}>Hold and speak clearly</Text>
+              </View>
+            )}
 
-              <Pressable
-                style={[styles.controlButton, styles.pauseButton]}
-                onPress={handlePause}
-                disabled={!isRecording}
-              >
-                <IconSymbol name={isPaused ? 'play.fill' : 'pause.fill'} size={32} color="#000" />
-              </Pressable>
+            {/* STATE 2: While Recording - Show timer, waveform, cancel & stop */}
+            {isRecordingSession && !recordingUri && (
+              <View style={styles.recordingState}>
+                <View style={styles.recordingHeader}>
+                  <View style={styles.recordingIndicator}>
+                    <View style={[styles.redDot, isPausedManual && styles.pausedDot]} />
+                    <Text style={[styles.recordingText, isPausedManual && styles.pausedTextHeader]}>
+                      {isPausedManual ? 'Paused' : 'Recording...'}
+                    </Text>
+                  </View>
+                  <Text style={styles.recordingTimer}>{formatTime(time)}</Text>
+                </View>
 
-              <Pressable
-                style={[styles.controlButton, styles.restartButton]}
-                onPress={handleRestart}
-              >
-                <IconSymbol name="arrow.clockwise" size={28} color="#666" />
-              </Pressable>
-            </View>
+                {/* Waveform visualization */}
+                <View style={styles.recordingWaveform}>
+                  {isPausedManual ? (
+                    <View style={styles.pausedIndicator}>
+                      <IconSymbol name="pause.fill" size={32} color="#999" />
+                      <Text style={styles.pausedText}>Paused - Tap resume to continue</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.waveformBars}>
+                      {[...Array(30)].map((_, i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.waveformBar,
+                            styles.recordingWaveformBarActive,
+                            { height: `${Math.random() * 60 + 40}%` }
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
 
-            {/* Submit Button */}
-            <Pressable style={styles.submitButton} onPress={handleSubmit}>
-              <IconSymbol name="sparkles" size={20} color="#3BB9F0" />
-              <Text style={styles.submitButtonText}>Submit to AI Analysis</Text>
-            </Pressable>
+                {/* Recording controls */}
+                <View style={styles.recordingControls}>
+                  <Pressable style={styles.cancelButton} onPress={handleReset}>
+                    <IconSymbol name="xmark.circle.fill" size={32} color="#FF6B6B" />
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.pauseRecordButton}
+                    onPress={handlePause}
+                  >
+                    <IconSymbol
+                      name={isPausedManual ? 'play.circle.fill' : 'pause.circle.fill'}
+                      size={40}
+                      color="#3BB9F0"
+                    />
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.stopButton}
+                    onPress={handleRecordToggle}
+                  >
+                    <IconSymbol name="stop.circle.fill" size={32} color="#4CAF50" />
+                    <Text style={styles.stopButtonText}>Done</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
+            {/* STATE 3: After Recording - Show audio player */}
+            {recordingUri && !isRecordingSession && (
+              <View style={styles.playbackState}>
+                <View style={styles.audioMessageContainer}>
+                  <Pressable
+                    style={[styles.playPauseButton, playerStatus.playing && styles.playPauseButtonPlaying]}
+                    onPress={handlePlayPause}
+                  >
+                    <IconSymbol
+                      name={playerStatus.playing ? "pause.fill" : "play.fill"}
+                      size={28}
+                      color="#fff"
+                    />
+                  </Pressable>
+
+                  <View style={styles.audioInfo}>
+                    <View style={styles.playbackWaveform}>
+                      <View style={styles.waveformBars}>
+                        {[...Array(40)].map((_, i) => (
+                          <View
+                            key={i}
+                            style={[
+                              styles.playbackWaveformBar,
+                              playerStatus.playing && i % 3 === 0 && styles.playbackWaveformBarActive,
+                              { height: `${Math.random() * 50 + 30}%` }
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    <Text style={styles.audioDuration}>
+                      {playerStatus.playing
+                        ? `${Math.floor(playerStatus.currentTime)}s / ${Math.floor(playerStatus.duration || 0)}s`
+                        : `${Math.floor(playerStatus.duration || 0)}s`}
+                    </Text>
+                  </View>
+
+                  <Pressable style={styles.deleteButton} onPress={handleReset}>
+                    <IconSymbol name="trash.fill" size={22} color="#FF6B6B" />
+                  </Pressable>
+                </View>
+
+                <Pressable style={styles.sendButton} onPress={handleSave}>
+                  <Text style={styles.sendButtonText}>Submit to AI Analysis</Text>
+                  <IconSymbol name="arrow.right.circle.fill" size={24} color="#fff" />
+                </Pressable>
+              </View>
+            )}
+
           </View>
         </ScrollView>
       </View>
@@ -262,7 +803,7 @@ export default function SpeakingPracticeScreen() {
               <IconSymbol name="speaker.wave.2.fill" size={20} color="#3BB9F0" />
             </Pressable>
           </View>
-          <Text style={styles.questionText}>{question.text}</Text>
+          <Text style={styles.questionText}>{question.question_text}</Text>
         </View>
 
         {/* Start Practice Button */}
@@ -525,77 +1066,227 @@ const styles = StyleSheet.create({
   },
   recordingCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
+    borderRadius: 24,
+    padding: 32,
+    minHeight: 300,
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  recordingStatus: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: 12,
-  },
-  timer: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 24,
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+
+  // STATE 1: Initial/Before Recording
+  initialState: {
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 24,
+    gap: 24,
   },
-  controlButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  instructionText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
   },
-  recordButton: {
-    backgroundColor: '#FFE5E5',
-  },
-  recordButtonActive: {
+  bigMicButton: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     backgroundColor: '#FF6B6B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF6B6B',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  pauseButton: {
-    backgroundColor: '#E8F6FC',
+  hintText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
   },
-  restartButton: {
-    backgroundColor: '#F5F5F5',
+
+  // STATE 2: While Recording
+  recordingState: {
+    gap: 24,
   },
-  submitButton: {
+  recordingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  recordingIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F6FC',
-    borderRadius: 25,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
     gap: 8,
   },
-  submitButtonText: {
-    fontSize: 15,
+  redDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FF6B6B',
+  },
+  pausedDot: {
+    backgroundColor: '#FF9800',
+  },
+  recordingText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#3BB9F0',
+    color: '#FF6B6B',
+  },
+  pausedTextHeader: {
+    color: '#FF9800',
+  },
+  recordingTimer: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+    letterSpacing: 1,
+  },
+  recordingWaveform: {
+    height: 100,
+    justifyContent: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+  },
+  recordingWaveformBarActive: {
+    backgroundColor: '#FF6B6B',
+  },
+  pausedIndicator: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  pausedText: {
+    fontSize: 14,
+    color: '#999',
+    fontWeight: '500',
+  },
+  recordingControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelButton: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  cancelButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF6B6B',
+  },
+  pauseRecordButton: {
+    padding: 8,
+  },
+  stopButton: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  stopButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4CAF50',
+  },
+  // STATE 3: Playback/After Recording
+  playbackState: {
+    gap: 20,
+  },
+  audioMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F7FF',
+    borderRadius: 20,
+    padding: 16,
+    gap: 12,
+  },
+  playPauseButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#3BB9F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#3BB9F0',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  playPauseButtonPlaying: {
+    backgroundColor: '#2196F3',
+  },
+  audioInfo: {
+    flex: 1,
+    gap: 8,
+  },
+  playbackWaveform: {
+    height: 40,
+    justifyContent: 'center',
+  },
+  playbackWaveformBar: {
+    width: 3,
+    backgroundColor: '#B3D9F2',
+    borderRadius: 2,
+  },
+  playbackWaveformBarActive: {
+    backgroundColor: '#3BB9F0',
+  },
+  audioDuration: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  sendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    borderRadius: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    gap: 12,
+    shadowColor: '#4CAF50',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  sendButtonText: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  // Common waveform styles
+  waveformBars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: '100%',
+  },
+  waveformBar: {
+    width: 3,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
   },
   recordsSection: {
     marginTop: 20,
@@ -751,6 +1442,36 @@ const styles = StyleSheet.create({
   startPracticeText: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#fff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 12,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF6B6B',
+    marginTop: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#3BB9F0',
+    borderRadius: 25,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#fff',
   },
 });
