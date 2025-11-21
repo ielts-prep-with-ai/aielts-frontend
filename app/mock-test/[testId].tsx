@@ -1,20 +1,57 @@
-import { StyleSheet, ScrollView, View, Text, Pressable, Modal } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+interface StartTestRequest {
+  mode: 'practice' | 'simulation';
+  exam_set_id: number;
+  skill: string;
+  part1: boolean;
+  part2: boolean;
+  part3: boolean;
+  time_limit: '0min' | '12min' | '14min';
+}
+
+interface StartTestResponse {
+  test_session_id: string;
+  part1: number[];
+  part2: number[];
+  part3: number[];
+  start_time: string;
+  end_time: string;
+  time_limit: string;
+}
 
 export default function MockTestDetailsScreen() {
   const router = useRouter();
-  const { testId } = useLocalSearchParams();
+  const { testId, skill = 'speaking' } = useLocalSearchParams<{ testId: string; skill?: string }>();
 
   const [selectedParts, setSelectedParts] = useState<string[]>([]);
-  const [timeLimit, setTimeLimit] = useState('13 mins');
+  const [timeLimit, setTimeLimit] = useState<'0min' | '12min' | '14min'>('12min');
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const togglePart = (part: string) => {
-    setSelectedParts(prev =>
-      prev.includes(part) ? prev.filter(p => p !== part) : [...prev, part]
-    );
+    if (part === 'full') {
+      // Toggle all parts
+      const allSelected = selectedParts.includes('full');
+      setSelectedParts(allSelected ? [] : ['full', 'part1', 'part2', 'part3']);
+    } else {
+      setSelectedParts(prev => {
+        const newParts = prev.includes(part) 
+          ? prev.filter(p => p !== part && p !== 'full')
+          : [...prev, part];
+        
+        // Auto-check "full" if all 3 parts selected
+        const hasAll = ['part1', 'part2', 'part3'].every(p => newParts.includes(p));
+        if (hasAll && !newParts.includes('full')) {
+          return [...newParts, 'full'];
+        }
+        return newParts.filter(p => p !== 'full');
+      });
+    }
   };
 
   const parts = [
@@ -24,37 +61,56 @@ export default function MockTestDetailsScreen() {
     { id: 'part3', label: 'Part 3 (4 questions)' },
   ];
 
-  const timeOptions = ['5 mins', '10 mins', '13 mins', '15 mins', '20 mins', '30 mins'];
+  const timeOptions: { value: '0min' | '12min' | '14min'; label: string }[] = [
+    { value: '0min', label: 'No limit' },
+    { value: '12min', label: '12 mins' },
+    { value: '14min', label: '14 mins' },
+  ];
 
-  const handleStartPractice = () => {
-    console.log('Starting practice mode with:', { selectedParts, timeLimit });
+  const startTest = (mode: 'practice' | 'simulation') => {
+    const isFullParts = selectedParts.includes('full');
+    
+    const testConfig: StartTestRequest = {
+      mode,
+      exam_set_id: parseInt(testId, 10),
+      skill: skill as string,
+      part1: mode === 'simulation' ? true : (isFullParts || selectedParts.includes('part1')),
+      part2: mode === 'simulation' ? true : (isFullParts || selectedParts.includes('part2')),
+      part3: mode === 'simulation' ? true : (isFullParts || selectedParts.includes('part3')),
+      time_limit: mode === 'simulation' ? '0min' : timeLimit,
+    };
+
+    console.log('[MockTest] Test config:', testConfig);
+
+    // Pass config to next screen, API call will happen after mic test
     router.push({
       pathname: '/mock-test/instructions',
       params: {
         testId,
-        mode: 'practice',
-        parts: selectedParts.join(','),
-        timeLimit,
+        testConfig: JSON.stringify(testConfig),
       },
     });
+  };
+
+  const handleStartPractice = () => {
+    if (selectedParts.length === 0) {
+      setError('Please select at least one part to practice.');
+      return;
+    }
+    startTest('practice');
   };
 
   const handleStartSimulation = () => {
-    console.log('Starting simulation test');
-    router.push({
-      pathname: '/mock-test/instructions',
-      params: {
-        testId,
-        mode: 'simulation',
-        parts: 'full',
-        timeLimit: '13 mins',
-      },
-    });
+    startTest('simulation');
   };
 
-  const selectTime = (time: string) => {
+  const selectTime = (time: '0min' | '12min' | '14min') => {
     setTimeLimit(time);
     setShowTimePicker(false);
+  };
+
+  const getTimeLimitLabel = (value: string) => {
+    return timeOptions.find(t => t.value === value)?.label || value;
   };
 
   return (
@@ -70,6 +126,12 @@ export default function MockTestDetailsScreen() {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <Text style={styles.pageTitle}>Choose a mode</Text>
 
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
         {/* Practice Mode Card */}
         <View style={styles.modeCard}>
           <Text style={styles.modeTitle}>Practice mode</Text>
@@ -77,7 +139,6 @@ export default function MockTestDetailsScreen() {
             Practice mode is suitable for improving accuracy and time spent on each part.
           </Text>
 
-          {/* Choose Parts Section */}
           <Text style={styles.sectionLabel}>1. Choose part/task(s) you want to practice:</Text>
 
           {parts.map((part) => (
@@ -98,16 +159,22 @@ export default function MockTestDetailsScreen() {
             </Pressable>
           ))}
 
-          {/* Time Limit Section */}
           <Text style={styles.sectionLabel}>2. Choose a time limit:</Text>
           <Pressable style={styles.timeSelector} onPress={() => setShowTimePicker(true)}>
-            <Text style={styles.timeSelectorText}>{timeLimit}</Text>
+            <Text style={styles.timeSelectorText}>{getTimeLimitLabel(timeLimit)}</Text>
             <IconSymbol name="chevron.down" size={20} color="#666" />
           </Pressable>
 
-          {/* Start Button */}
-          <Pressable style={styles.startButton} onPress={handleStartPractice}>
-            <Text style={styles.startButtonText}>Start Now</Text>
+          <Pressable 
+            style={[styles.startButton, loading && styles.startButtonDisabled]} 
+            onPress={handleStartPractice}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.startButtonText}>Start Now</Text>
+            )}
           </Pressable>
         </View>
 
@@ -118,13 +185,19 @@ export default function MockTestDetailsScreen() {
             Simulation test mode is the best option to experience the real IELTS on computer.
           </Text>
 
-          {/* Test Information */}
           <Text style={styles.testInfoLabel}>Test Information</Text>
           <Text style={styles.testInfoText}>Full parts (13 minutes - 3 parts - 18 questions)</Text>
 
-          {/* Start Button */}
-          <Pressable style={styles.startButton} onPress={handleStartSimulation}>
-            <Text style={styles.startButtonText}>Start Now</Text>
+          <Pressable 
+            style={[styles.startButton, loading && styles.startButtonDisabled]} 
+            onPress={handleStartSimulation}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.startButtonText}>Start Now</Text>
+            )}
           </Pressable>
         </View>
       </ScrollView>
@@ -139,20 +212,20 @@ export default function MockTestDetailsScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => setShowTimePicker(false)}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Time Limit</Text>
-            {timeOptions.map((time) => (
+            {timeOptions.map((option) => (
               <Pressable
-                key={time}
+                key={option.value}
                 style={[
                   styles.timeOption,
-                  timeLimit === time && styles.timeOptionSelected
+                  timeLimit === option.value && styles.timeOptionSelected
                 ]}
-                onPress={() => selectTime(time)}
+                onPress={() => selectTime(option.value)}
               >
                 <Text style={[
                   styles.timeOptionText,
-                  timeLimit === time && styles.timeOptionTextSelected
-                ]}>{time}</Text>
-                {timeLimit === time && (
+                  timeLimit === option.value && styles.timeOptionTextSelected
+                ]}>{option.label}</Text>
+                {timeLimit === option.value && (
                   <IconSymbol name="checkmark" size={20} color="#3BB9F0" />
                 )}
               </Pressable>
@@ -200,16 +273,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
+  errorContainer: {
+    backgroundColor: '#FFE8E8',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 14,
+    textAlign: 'center',
+  },
   modeCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
@@ -280,6 +361,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
+  },
+  startButtonDisabled: {
+    opacity: 0.7,
   },
   startButtonText: {
     fontSize: 16,

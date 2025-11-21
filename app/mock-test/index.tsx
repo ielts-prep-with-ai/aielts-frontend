@@ -1,38 +1,23 @@
-import { StyleSheet, ScrollView, View, Text, Pressable, TextInput } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ApiService } from '@/services/api.service';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-interface MockTest {
+interface ExamSet {
   id: number;
   title: string;
-  testsTaken: number;
-  completionPercentage?: number;
-  skill: 'listening' | 'reading' | 'writing' | 'speaking';
 }
+
+type SkillFilter = 'all' | 'listening' | 'reading' | 'writing' | 'speaking';
 
 export default function MockTestScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'listening' | 'reading' | 'writing' | 'speaking'>('all');
-
-  const mockTests: MockTest[] = [
-    { id: 1, title: 'January Speaking Practice Test 1', testsTaken: 63182, completionPercentage: 100, skill: 'speaking' },
-    { id: 2, title: 'January Speaking Practice Test 2', testsTaken: 63182, completionPercentage: 100, skill: 'speaking' },
-    { id: 3, title: 'February Speaking Practice Test 1', testsTaken: 63182, completionPercentage: 100, skill: 'speaking' },
-    { id: 4, title: 'February Speaking Practice Test 2', testsTaken: 63182, skill: 'speaking' },
-    { id: 5, title: 'March Speaking Practice Test 1', testsTaken: 63182, skill: 'speaking' },
-    { id: 6, title: 'January Speaking Practice Test 1', testsTaken: 63182, skill: 'speaking' },
-    { id: 7, title: 'January Listening Practice Test 1', testsTaken: 45230, completionPercentage: 85, skill: 'listening' },
-    { id: 8, title: 'February Reading Practice Test 1', testsTaken: 52100, skill: 'reading' },
-    { id: 9, title: 'March Writing Practice Test 1', testsTaken: 38450, completionPercentage: 60, skill: 'writing' },
-  ];
-
-  const filteredTests = mockTests.filter(test => {
-    const matchesSearch = test.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = activeFilter === 'all' || test.skill === activeFilter;
-    return matchesSearch && matchesFilter;
-  });
+  const [activeFilter, setActiveFilter] = useState<SkillFilter>('all');
+  const [examSets, setExamSets] = useState<ExamSet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const filters = [
     { key: 'all', label: 'All skills' },
@@ -41,6 +26,46 @@ export default function MockTestScreen() {
     { key: 'writing', label: 'Writing' },
     { key: 'speaking', label: 'Speaking' },
   ] as const;
+
+  const fetchExamSets = async (skill?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      let results: ExamSet[] = [];
+      
+      if (skill === 'all' || !skill) {
+        // Fetch all skills in parallel
+        const skills = ['listening', 'reading', 'writing', 'speaking'];
+        const responses = await Promise.all(
+          skills.map(s => ApiService.get<ExamSet[]>(`/examsets?skill=${s}`))
+        );
+        results = responses.flat();
+      } else {
+        results = await ApiService.get<ExamSet[]>(`/examsets?skill=${skill}`);
+      }
+      
+      console.log('[MockTest] Response:', results);
+      setExamSets(results);
+    } catch (err: any) {
+      const message = err?.message || 'Failed to load exam sets. Please try again.';
+      setError(message);
+      console.error('Error fetching exam sets:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExamSets(activeFilter);
+  }, [activeFilter]);
+
+  const filteredTests = examSets.filter(test => 
+    test.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleFilterChange = (filter: SkillFilter) => {
+    setActiveFilter(filter);
+  };
 
   return (
     <View style={styles.container}>
@@ -78,7 +103,7 @@ export default function MockTestScreen() {
               styles.filterPill,
               activeFilter === filter.key && styles.filterPillActive
             ]}
-            onPress={() => setActiveFilter(filter.key)}
+            onPress={() => handleFilterChange(filter.key)}
           >
             <Text style={[
               styles.filterPillText,
@@ -94,26 +119,35 @@ export default function MockTestScreen() {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <Text style={styles.sectionTitle}>IELTS Mock Test 2025</Text>
 
-        {filteredTests.map((test) => (
-          <Pressable
-            key={test.id}
-            style={styles.testCard}
-            onPress={() => router.push(`/mock-test/${test.id}`)}
-          >
-            {test.completionPercentage !== undefined && (
-              <View style={styles.progressCircle}>
-                <Text style={styles.progressText}>{test.completionPercentage}%</Text>
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#3BB9F0" />
+            <Text style={styles.loadingText}>Loading tests...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Pressable style={styles.retryButton} onPress={() => fetchExamSets(activeFilter)}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : filteredTests.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyText}>No tests found</Text>
+          </View>
+        ) : (
+          filteredTests.map((test) => (
+            <Pressable
+              key={test.id}
+              style={styles.testCard}
+              onPress={() => router.push(`/mock-test/${test.id}`)}
+            >
+              <View style={styles.testCardContent}>
+                <Text style={styles.testTitle}>{test.title}</Text>
               </View>
-            )}
-            <View style={styles.testCardContent}>
-              <Text style={styles.testTitle}>{test.title}</Text>
-              <View style={styles.testStats}>
-                <IconSymbol name="trophy.fill" size={16} color="#FFB800" />
-                <Text style={styles.testStatsText}>{test.testsTaken.toLocaleString()} tests taken</Text>
-              </View>
-            </View>
-          </Pressable>
-        ))}
+            </Pressable>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -208,10 +242,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
@@ -247,6 +278,37 @@ const styles = StyleSheet.create({
   },
   testStatsText: {
     fontSize: 13,
+    color: '#666',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#FF5252',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#3BB9F0',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: 14,
     color: '#666',
   },
 });
