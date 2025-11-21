@@ -1,31 +1,47 @@
-import { StyleSheet, ScrollView, View, Text, Pressable } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-export default function MockTestInstructionsScreen() {
-  const router = useRouter();
-  const { testId, mode, parts, timeLimit } = useLocalSearchParams();
+type Language = 'en' | 'vi';
 
-  const instructions = [
+const instructions = {
+  en: [
     'The exam is divided into 3 parts. The name of each part is mentioned on the top of the page.',
     'There will be an active timer to remind you of how much time is left.',
     'You will use a computer and headset to read and respond to questions.',
     'Submit your test after you finish by clicking on "SUBMIT TEST". Make sure you have attempt maximum number of questions.',
     'You can also review your recording and record again to change your responses after completing and before submission.',
     'You can check required browser settings for recording.',
-  ];
+  ],
+  vi: [
+    'Bài thi được chia thành 3 phần. Tên của mỗi phần được hiển thị ở đầu trang.',
+    'Sẽ có đồng hồ đếm ngược để nhắc bạn còn bao nhiêu thời gian.',
+    'Bạn sẽ sử dụng máy tính và tai nghe để đọc và trả lời câu hỏi.',
+    'Nộp bài sau khi hoàn thành bằng cách nhấn "NỘP BÀI". Hãy đảm bảo bạn đã trả lời tối đa số câu hỏi.',
+    'Bạn cũng có thể xem lại bản ghi âm và ghi lại để thay đổi câu trả lời trước khi nộp bài.',
+    'Bạn có thể kiểm tra cài đặt trình duyệt cần thiết để ghi âm.',
+  ],
+};
+
+const labels = {
+  en: { title: 'GENERAL INSTRUCTIONS', next: 'Next step' },
+  vi: { title: 'HƯỚNG DẪN CHUNG', next: 'Bước tiếp theo' },
+};
+
+export default function MockTestInstructionsScreen() {
+  const router = useRouter();
+  const { testId, testConfig } = useLocalSearchParams<{ testId: string; testConfig: string }>();
+  const [language, setLanguage] = useState<Language>('en');
+
+  const toggleLanguage = () => {
+    setLanguage(prev => prev === 'en' ? 'vi' : 'en');
+  };
 
   const handleNextStep = () => {
-    // Navigate to microphone test page
-    console.log('Starting test with params:', { testId, mode, parts, timeLimit });
     router.push({
       pathname: '/mock-test/microphone-test',
-      params: {
-        testId,
-        mode,
-        parts,
-        timeLimit,
-      },
+      params: { testId, testConfig },
     });
   };
 
@@ -37,14 +53,21 @@ export default function MockTestInstructionsScreen() {
           <IconSymbol name="chevron.left" size={28} color="#000" />
         </Pressable>
         <Text style={styles.headerTitle}>AI Mock Test</Text>
+        
+        {/* Language Toggle */}
+        <Pressable style={styles.langToggle} onPress={toggleLanguage}>
+          <Text style={[styles.langText, language === 'en' && styles.langTextActive]}>EN</Text>
+          <Text style={styles.langDivider}>|</Text>
+          <Text style={[styles.langText, language === 'vi' && styles.langTextActive]}>VI</Text>
+        </Pressable>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.pageTitle}>GENERAL INSTRUCTIONS</Text>
+        <Text style={styles.pageTitle}>{labels[language].title}</Text>
 
         {/* Instructions Card */}
         <View style={styles.instructionsCard}>
-          {instructions.map((instruction, index) => (
+          {instructions[language].map((instruction, index) => (
             <View key={index} style={styles.instructionRow}>
               <Text style={styles.bullet}>•</Text>
               <Text style={styles.instructionText}>{instruction}</Text>
@@ -53,7 +76,7 @@ export default function MockTestInstructionsScreen() {
 
           {/* Next Step Button */}
           <Pressable style={styles.nextButton} onPress={handleNextStep}>
-            <Text style={styles.nextButtonText}>Next step</Text>
+            <Text style={styles.nextButtonText}>{labels[language].next}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -82,6 +105,28 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
+    flex: 1,
+  },
+  langToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  langText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#999',
+  },
+  langTextActive: {
+    color: '#3BB9F0',
+  },
+  langDivider: {
+    fontSize: 13,
+    color: '#CCC',
+    marginHorizontal: 6,
   },
   content: {
     flex: 1,
@@ -103,10 +148,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
