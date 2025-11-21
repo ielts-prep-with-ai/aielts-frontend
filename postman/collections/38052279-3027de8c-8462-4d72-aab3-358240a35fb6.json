@@ -755,8 +755,36 @@
 						"disableBodyPruning": true
 					},
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNmMTkyMDAzLTYwZTUtNGZhMy1hYTM5LWI3ZWRlMTc0N2RmMyIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNS0xMS0yMVQwMToxODowNi41MDA4NjcxMzhaIiwiZXhwaXJlZF9hdCI6IjIwMjUtMTItMjFUMDE6MTg6MDYuNTAwODY3Mjc4WiJ9.48GYmzF0HWdgy-1XEpw-v0JFsTjYXcjggQM6xuWBks0",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
-						"header": []
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/v1/vocabulary/autocomplete?prefix=the",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"vocabulary",
+								"autocomplete"
+							],
+							"query": [
+								{
+									"key": "prefix",
+									"value": "the"
+								}
+							]
+						}
 					},
 					"response": []
 				}
