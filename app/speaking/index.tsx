@@ -127,7 +127,7 @@ export default function SpeakingScreen() {
               description={getTopicDescription(topic.tags)}
               questionsCount={topic.question_count}
               isHighlighted={index === 0}
-              onPress={() => router.push(`/speaking/${topic.id}`)}
+              onPress={() => router.push(`/speaking/${topic.id}?topicName=${encodeURIComponent(topic.topic_name)}`)}
             />
           ))}
         </View>

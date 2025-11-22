@@ -1,9 +1,9 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ApiService } from '@/services/api.service';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Speech from 'expo-speech';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import * as Speech from 'expo-speech';
 
 interface Question {
   id: number;
@@ -29,7 +29,8 @@ export default function TopicQuestionsScreen() {
   // If file is named [topic].tsx, the ID comes as 'topic' param
   // If file is named [id].tsx, the ID comes as 'id' param
   const topicId = params.topic || params.id; // Get ID from route path
-  
+  const topicName = params.topicName as string; // Get from URL params
+
   const [activeFilter, setActiveFilter] = useState<'All' | 'AI generated' | 'Official'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -41,18 +42,8 @@ export default function TopicQuestionsScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [speakingQuestionId, setSpeakingQuestionId] = useState<number | null>(null);
 
-  // Topic ID mapping - not needed if you're getting ID from route
-  const topicNameMap: Record<string, string> = {
-    '1': 'Education',
-    '2': 'Technology',
-    '3': 'Travel & Tourism',
-    '4': 'Environment',
-    '5': 'Health & Fitness',
-    '6': 'Work & Career',
-    '7': 'Personal Information',
-  };
 
-  const topicTitle = topicNameMap[topicId as string] || 'Practice Questions';
+  const topicTitle = topicName || 'Practice Questions';
 
   // Fetch questions from API
   const fetchQuestions = async (append = false) => {

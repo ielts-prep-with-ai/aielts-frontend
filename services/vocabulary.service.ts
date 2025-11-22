@@ -1,5 +1,5 @@
 import { ApiService } from './api.service';
-import { SavedWord, SaveWordRequest, DictionaryDefinition } from './types';
+import { DictionaryDefinition, SavedWord, SaveWordRequest } from './types';
 
 /**
  * Vocabulary Service - Handles all vocabulary-related API calls
@@ -72,6 +72,27 @@ class VocabularyServiceClass {
       return definition;
     } catch (error) {
       console.error(`[VocabularyService] Failed to search word "${word}":`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get autocomplete suggestions for a word prefix (public endpoint, no auth required)
+   * GET /vocabulary/autocomplete?prefix={prefix}
+   */
+  async getAutocompleteSuggestions(prefix: string): Promise<string[]> {
+    console.log(`[VocabularyService] Fetching autocomplete for: ${prefix}...`);
+
+    try {
+      const response = await ApiService.get<{ Word: string; Count: number }[]>(
+        `/vocabulary/autocomplete?prefix=${encodeURIComponent(prefix)}`,
+        { skipAuth: true }
+      );
+      const suggestions = response.map(item => item.Word);
+      console.log(`[VocabularyService] Found ${suggestions.length} suggestions for "${prefix}"`);
+      return suggestions;
+    } catch (error) {
+      console.error(`[VocabularyService] Failed to get autocomplete for "${prefix}":`, error);
       throw error;
     }
   }

@@ -2,7 +2,8 @@ import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
 import { SubmitAnswerResponse, UserAnswerWithEvaluation } from './types';
 
-const API_BASE_URL = 'https://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
+// const API_BASE_URL = 'https://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
+const API_BASE_URL = 'http://192.168.1.67:8301/api/v1';
 
 /**
  * Answers Service - Handles all user answer-related API calls

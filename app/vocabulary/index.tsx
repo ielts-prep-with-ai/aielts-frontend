@@ -1,10 +1,10 @@
-import { StyleSheet, ScrollView, View, Text, Pressable, TextInput, ActivityIndicator, Alert, Animated } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useRouter } from 'expo-router';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { VocabularyService } from '@/services/vocabulary.service';
 import type { DictionaryDefinition, SavedWord } from '@/services/types';
+import { VocabularyService } from '@/services/vocabulary.service';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 export default function VocabularyScreen() {
   const router = useRouter();
@@ -15,6 +15,12 @@ export default function VocabularyScreen() {
   const [searchResult, setSearchResult] = useState<DictionaryDefinition | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Saved words state
   const [savedWords, setSavedWords] = useState<SavedWord[]>([]);
@@ -47,6 +53,68 @@ export default function VocabularyScreen() {
     }
   }, [activeTab]);
 
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
+
+  // Fetch autocomplete suggestions with 300ms debounce
+  const fetchSuggestions = useCallback(async (prefix: string) => {
+    if (!prefix.trim() || prefix.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      setIsLoadingSuggestions(true);
+      const results = await VocabularyService.getAutocompleteSuggestions(prefix.trim());
+      setSuggestions(results);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('[Vocabulary] Autocomplete failed:', error);
+      setSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  }, []);
+
+  // Handle search query change with debounce
+  const handleSearchQueryChange = (text: string) => {
+    setSearchQuery(text);
+    
+    // Clear previous timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    
+    // Hide suggestions if input is cleared
+    if (!text.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    
+    // Set new timer for 300ms debounce
+    debounceTimer.current = setTimeout(() => {
+      fetchSuggestions(text);
+    }, 300);
+  };
+
+  // Handle suggestion selection
+  const handleSuggestionSelect = (suggestion: string) => {
+    setSearchQuery(suggestion);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    
+    // Trigger search with selected suggestion
+    performSearch(suggestion);
+  };
+
   const loadSavedWords = async () => {
     try {
       setIsLoadingSaved(true);
@@ -61,9 +129,9 @@ export default function VocabularyScreen() {
     }
   };
 
-  // Search for a word
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
+  // Extracted search logic for reuse
+  const performSearch = async (word: string) => {
+    if (!word.trim()) {
       setSearchError('Please enter a word to search');
       return;
     }
@@ -73,11 +141,11 @@ export default function VocabularyScreen() {
       setSearchError(null);
       setSearchResult(null);
       setAudioUrl(null);
+      setShowSuggestions(false);
 
-      const result = await VocabularyService.searchWord(searchQuery.trim());
+      const result = await VocabularyService.searchWord(word.trim());
       setSearchResult(result);
 
-      // Find the first available audio URL
       if (result.phonetics && result.phonetics.length > 0) {
         const audioPhonetic = result.phonetics.find(p => p.audio);
         if (audioPhonetic?.audio) {
@@ -94,17 +162,20 @@ export default function VocabularyScreen() {
     }
   };
 
-  // Play pronunciation audio - plays once per click
+  // Search for a word
+  const handleSearch = () => {
+    setShowSuggestions(false);
+    performSearch(searchQuery);
+  };
+
+  // Play pronunciation audio
   const handlePlayAudio = () => {
     if (!audioUrl) return;
-
     try {
       if (playerStatus.playing) {
-        // If currently playing, stop it
         audioPlayer.pause();
         audioPlayer.seekTo(0);
       } else {
-        // Start from beginning and play once
         audioPlayer.seekTo(0);
         audioPlayer.play();
       }
@@ -113,7 +184,6 @@ export default function VocabularyScreen() {
     }
   };
 
-  // Auto-stop audio when it finishes
   useEffect(() => {
     if (playerStatus.didJustFinish) {
       audioPlayer.pause();
@@ -121,7 +191,6 @@ export default function VocabularyScreen() {
     }
   }, [playerStatus.didJustFinish]);
 
-  // Animate search result when it appears
   useEffect(() => {
     if (searchResult) {
       searchResultAnimation.setValue(0);
@@ -134,7 +203,6 @@ export default function VocabularyScreen() {
     }
   }, [searchResult]);
 
-  // Animate saved words when they load
   useEffect(() => {
     if (savedWords.length > 0 && activeTab === 'saved') {
       savedWordsAnimation.setValue(0);
@@ -151,7 +219,6 @@ export default function VocabularyScreen() {
     }
   }, [savedWords, activeTab]);
 
-  // Animate tab indicator
   useEffect(() => {
     Animated.spring(tabIndicatorAnimation, {
       toValue: activeTab === 'search' ? 0 : 1,
@@ -161,7 +228,6 @@ export default function VocabularyScreen() {
     }).start();
   }, [activeTab]);
 
-  // Animate error state
   useEffect(() => {
     if (searchError) {
       errorAnimation.setValue(0);
@@ -176,7 +242,6 @@ export default function VocabularyScreen() {
     }
   }, [searchError]);
 
-  // Animate empty state
   useEffect(() => {
     if (!searchResult && !searchError && !isSearching) {
       emptyStateAnimation.setValue(0);
@@ -188,19 +253,12 @@ export default function VocabularyScreen() {
     }
   }, [searchResult, searchError, isSearching]);
 
-  // Save a word to vocabulary list
   const handleSaveWord = async (word: string) => {
     try {
       await VocabularyService.saveWord(word);
-
-      // Update local state
-      const newWord: SavedWord = {
-        word,
-        created_at: new Date().toISOString(),
-      };
+      const newWord: SavedWord = { word, created_at: new Date().toISOString() };
       setSavedWords(prev => [newWord, ...prev]);
       setSavedWordsSet(prev => new Set([...prev, word.toLowerCase()]));
-
       Alert.alert('Success', `"${word}" saved to your vocabulary list!`);
     } catch (error: any) {
       console.error('[Vocabulary] Failed to save word:', error);
@@ -208,19 +266,15 @@ export default function VocabularyScreen() {
     }
   };
 
-  // Delete a saved word
   const handleDeleteWord = async (word: string) => {
     try {
       await VocabularyService.deleteWord(word);
-
-      // Update local state
       setSavedWords(prev => prev.filter(w => w.word !== word));
       setSavedWordsSet(prev => {
         const newSet = new Set(prev);
         newSet.delete(word.toLowerCase());
         return newSet;
       });
-
       Alert.alert('Removed', `"${word}" removed from your vocabulary list.`);
     } catch (error: any) {
       console.error('[Vocabulary] Failed to delete word:', error);
@@ -228,38 +282,12 @@ export default function VocabularyScreen() {
     }
   };
 
-  // Check if current search result is saved
   const isCurrentWordSaved = searchResult ? savedWordsSet.has(searchResult.word.toLowerCase()) : false;
 
-  // Search for a saved word when clicked
   const handleSavedWordClick = async (word: string) => {
     setActiveTab('search');
     setSearchQuery(word);
-
-    try {
-      setIsSearching(true);
-      setSearchError(null);
-      setSearchResult(null);
-      setAudioUrl(null);
-
-      const result = await VocabularyService.searchWord(word);
-      setSearchResult(result);
-
-      // Find the first available audio URL
-      if (result.phonetics && result.phonetics.length > 0) {
-        const audioPhonetic = result.phonetics.find(p => p.audio);
-        if (audioPhonetic?.audio) {
-          setAudioUrl(audioPhonetic.audio);
-        }
-      }
-    } catch (error: any) {
-      console.error('[Vocabulary] Search failed:', error);
-      setSearchError(error?.message || 'Word not found. Please try another word.');
-      setSearchResult(null);
-      setAudioUrl(null);
-    } finally {
-      setIsSearching(false);
-    }
+    performSearch(word);
   };
 
   return (
@@ -281,14 +309,37 @@ export default function VocabularyScreen() {
             placeholder="Search for any word..."
             placeholderTextColor="#999"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchQueryChange}
             onSubmitEditing={handleSearch}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {isSearching && <ActivityIndicator size="small" color="#3BB9F0" />}
+          {(isSearching || isLoadingSuggestions) && (
+            <ActivityIndicator size="small" color="#3BB9F0" />
+          )}
         </View>
+
+        {/* Autocomplete Suggestions Dropdown */}
+        {showSuggestions && suggestions.length > 0 && (
+          <View style={styles.suggestionsContainer}>
+            {suggestions.map((suggestion, index) => (
+              <Pressable
+                key={index}
+                style={({ pressed }) => [
+                  styles.suggestionItem,
+                  pressed && styles.suggestionItemPressed,
+                  index === suggestions.length - 1 && styles.suggestionItemLast,
+                ]}
+                onPress={() => handleSuggestionSelect(suggestion)}
+              >
+                <IconSymbol name="magnifyingglass" size={16} color="#999" />
+                <Text style={styles.suggestionText}>{suggestion}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Tabs Section */}
@@ -320,24 +371,25 @@ export default function VocabularyScreen() {
       </View>
 
       {/* Content Area */}
-      <ScrollView style={styles.content} contentContainerStyle={!searchResult && !searchError && activeTab === 'search' ? styles.contentContainer : undefined}>
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={!searchResult && !searchError && activeTab === 'search' ? styles.contentContainer : undefined}
+        onScrollBeginDrag={() => setShowSuggestions(false)}
+      >
         {activeTab === 'search' && (
           <>
-            {/* Search Error State */}
             {searchError && (
               <Animated.View
                 style={[
                   styles.errorContainer,
                   {
                     opacity: errorAnimation,
-                    transform: [
-                      {
-                        scale: errorAnimation.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.9, 1],
-                        }),
-                      },
-                    ],
+                    transform: [{
+                      scale: errorAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.9, 1],
+                      }),
+                    }],
                   },
                 ]}
               >
@@ -347,7 +399,6 @@ export default function VocabularyScreen() {
               </Animated.View>
             )}
 
-            {/* Search Result */}
             {searchResult && (
               <Animated.View
                 style={[
@@ -371,12 +422,10 @@ export default function VocabularyScreen() {
                   },
                 ]}
               >
-                {/* Word Header */}
                 <View style={styles.wordHeader}>
                   <View style={styles.wordMainInfo}>
                     <Text style={styles.wordTitle}>{searchResult.word}</Text>
                     <View style={styles.wordActions}>
-                      {/* Audio Button */}
                       {audioUrl && (
                         <Pressable
                           style={({ pressed }) => [
@@ -393,8 +442,6 @@ export default function VocabularyScreen() {
                           />
                         </Pressable>
                       )}
-
-                      {/* Save Button */}
                       <Pressable
                         style={({ pressed }) => [
                           styles.actionButton,
@@ -416,12 +463,9 @@ export default function VocabularyScreen() {
                   )}
                 </View>
 
-                {/* Meanings */}
                 {searchResult.meanings.map((meaning, index) => (
                   <View key={index} style={styles.meaningSection}>
                     <Text style={styles.partOfSpeech}>{meaning.partOfSpeech}</Text>
-
-                    {/* Definitions */}
                     {meaning.definitions.slice(0, 3).map((def, defIndex) => (
                       <View key={defIndex} style={styles.definitionItem}>
                         <Text style={styles.definitionText}>{def.definition}</Text>
@@ -430,8 +474,6 @@ export default function VocabularyScreen() {
                         )}
                       </View>
                     ))}
-
-                    {/* Synonyms */}
                     {meaning.synonyms && meaning.synonyms.length > 0 && (
                       <View style={styles.relatedWordsContainer}>
                         <Text style={styles.relatedWordsLabel}>Similar:</Text>
@@ -449,16 +491,8 @@ export default function VocabularyScreen() {
               </Animated.View>
             )}
 
-            {/* Empty State */}
             {!searchResult && !searchError && !isSearching && (
-              <Animated.View
-                style={[
-                  styles.emptyState,
-                  {
-                    opacity: emptyStateAnimation,
-                  },
-                ]}
-              >
+              <Animated.View style={[styles.emptyState, { opacity: emptyStateAnimation }]}>
                 <IconSymbol name="magnifyingglass" size={60} color="#D3D3D3" />
                 <Text style={styles.emptyStateTitle}>Search for a word to get started</Text>
                 <Text style={styles.emptyStateSubtitle}>Try: articulate, comprehensive, inevitable</Text>
@@ -469,7 +503,6 @@ export default function VocabularyScreen() {
 
         {activeTab === 'saved' && (
           <>
-            {/* Loading State */}
             {isLoadingSaved && (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#3BB9F0" />
@@ -477,42 +510,35 @@ export default function VocabularyScreen() {
               </View>
             )}
 
-            {/* Saved Words List */}
             {!isLoadingSaved && savedWords.length > 0 && (
               <Animated.View
                 style={[
                   styles.savedWordsContainer,
                   {
                     opacity: savedWordsAnimation,
-                    transform: [
-                      {
-                        translateY: savedWordsAnimation.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [20, 0],
-                        }),
-                      },
-                    ],
+                    transform: [{
+                      translateY: savedWordsAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      }),
+                    }],
                   },
                 ]}
               >
                 {savedWords.map((savedWord, index) => {
-                  // Format date safely
                   let formattedDate = 'Recently added';
                   if (savedWord.created_at) {
                     try {
                       const date = new Date(savedWord.created_at);
                       if (!isNaN(date.getTime())) {
                         formattedDate = date.toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
+                          month: 'short', day: 'numeric', year: 'numeric'
                         });
                       }
                     } catch (error) {
                       console.error('[Vocabulary] Date parsing error:', error);
                     }
                   }
-
                   return (
                     <Pressable
                       key={index}
@@ -544,7 +570,6 @@ export default function VocabularyScreen() {
               </Animated.View>
             )}
 
-            {/* Empty State */}
             {!isLoadingSaved && savedWords.length === 0 && (
               <View style={styles.emptyState}>
                 <IconSymbol name="bookmark" size={60} color="#D3D3D3" />
@@ -560,304 +585,95 @@ export default function VocabularyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20,
+    paddingTop: 50, paddingBottom: 16, backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  backButton: {
-    marginRight: 16,
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000',
-  },
-  searchSection: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
+  backButton: { marginRight: 16, padding: 4 },
+  headerTitle: { fontSize: 20, fontWeight: '600', color: '#000' },
+  searchSection: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, zIndex: 10 },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5',
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, gap: 12,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#000',
-    fontWeight: '400',
+  searchInput: { flex: 1, fontSize: 16, color: '#000', fontWeight: '400' },
+  suggestionsContainer: {
+    position: 'absolute', top: 76, left: 20, right: 20,
+    backgroundColor: '#fff', borderRadius: 12, 
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
+    maxHeight: 250, overflow: 'hidden',
   },
+  suggestionItem: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
+    paddingVertical: 14, gap: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+  },
+  suggestionItemPressed: { backgroundColor: '#F5F5F5' },
+  suggestionItemLast: { borderBottomWidth: 0 },
+  suggestionText: { fontSize: 15, color: '#333', flex: 1 },
   tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    flexDirection: 'row', backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: '#E0E0E0',
   },
   tab: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    flex: 1, paddingVertical: 16, alignItems: 'center',
+    borderBottomWidth: 3, borderBottomColor: 'transparent',
   },
-  tabActive: {
-    borderBottomColor: '#3BB9F0',
-  },
-  tabPressed: {
-    backgroundColor: '#F8F8F8',
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#999',
-  },
-  tabTextActive: {
-    color: '#3BB9F0',
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  contentContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyStateTitle: {
-    fontSize: 15,
-    color: '#999',
-    marginTop: 16,
-    marginBottom: 6,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  emptyStateSubtitle: {
-    fontSize: 14,
-    color: '#BBB',
-    textAlign: 'center',
-  },
-  errorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#FF6B6B',
-    marginTop: 16,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  errorSubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  tabActive: { borderBottomColor: '#3BB9F0' },
+  tabPressed: { backgroundColor: '#F8F8F8' },
+  tabText: { fontSize: 16, fontWeight: '500', color: '#999' },
+  tabTextActive: { color: '#3BB9F0', fontWeight: '600' },
+  content: { flex: 1, backgroundColor: '#FAFAFA' },
+  contentContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  emptyStateTitle: { fontSize: 15, color: '#999', marginTop: 16, marginBottom: 6, textAlign: 'center', fontWeight: '500' },
+  emptyStateSubtitle: { fontSize: 14, color: '#BBB', textAlign: 'center' },
+  errorContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 40 },
+  errorText: { fontSize: 16, color: '#FF6B6B', marginTop: 16, textAlign: 'center', fontWeight: '500' },
+  errorSubtext: { fontSize: 14, color: '#999', marginTop: 8, textAlign: 'center' },
   resultContainer: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#3BB9F0',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    backgroundColor: '#fff', margin: 16, borderRadius: 16, padding: 24,
+    shadowColor: '#3BB9F0', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
   },
-  wordHeader: {
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  wordMainInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  wordTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000',
-  },
-  wordActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  wordHeader: { marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  wordMainInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  wordTitle: { fontSize: 28, fontWeight: '700', color: '#000' },
+  wordActions: { flexDirection: 'row', gap: 8 },
   actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2,
   },
-  actionButtonActive: {
-    backgroundColor: '#E8F6FC',
-    shadowColor: '#3BB9F0',
-    shadowOpacity: 0.2,
-  },
-  phoneticText: {
-    fontSize: 15,
-    color: '#666',
-    fontWeight: '400',
-  },
-  meaningSection: {
-    marginBottom: 20,
-  },
-  partOfSpeech: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#3BB9F0',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  definitionItem: {
-    marginBottom: 16,
-  },
-  definitionText: {
-    fontSize: 15,
-    color: '#333',
-    lineHeight: 22,
-    marginBottom: 6,
-  },
-  exampleText: {
-    fontSize: 14,
-    color: '#888',
-    lineHeight: 20,
-    marginTop: 6,
-    paddingLeft: 12,
-    borderLeftWidth: 2,
-    borderLeftColor: '#E0E0E0',
-  },
-  relatedWordsContainer: {
-    marginTop: 12,
-  },
-  relatedWordsLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-  },
-  tagsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  actionButtonActive: { backgroundColor: '#E8F6FC', shadowColor: '#3BB9F0', shadowOpacity: 0.2 },
+  phoneticText: { fontSize: 15, color: '#666', fontWeight: '400' },
+  meaningSection: { marginBottom: 20 },
+  partOfSpeech: { fontSize: 13, fontWeight: '600', color: '#3BB9F0', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  definitionItem: { marginBottom: 16 },
+  definitionText: { fontSize: 15, color: '#333', lineHeight: 22, marginBottom: 6 },
+  exampleText: { fontSize: 14, color: '#888', lineHeight: 20, marginTop: 6, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#E0E0E0' },
+  relatedWordsContainer: { marginTop: 12 },
+  relatedWordsLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginBottom: 8 },
+  tagsList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   wordTag: {
-    backgroundColor: '#F0F8FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#D0E8FF',
-    shadowColor: '#3BB9F0',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: '#F0F8FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
+    borderWidth: 1, borderColor: '#D0E8FF',
+    shadowColor: '#3BB9F0', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1,
   },
-  wordTagText: {
-    fontSize: 13,
-    color: '#3BB9F0',
-    fontWeight: '500',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 12,
-  },
-  savedWordsContainer: {
-    padding: 16,
-  },
+  wordTagText: { fontSize: 13, color: '#3BB9F0', fontWeight: '500' },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  loadingText: { fontSize: 16, color: '#666', marginTop: 12 },
+  savedWordsContainer: { padding: 16 },
   savedWordItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderRadius: 12, marginBottom: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
   },
-  savedWordItemPressed: {
-    backgroundColor: '#F8F8F8',
-    transform: [{ scale: 0.98 }],
-  },
-  savedWordInfo: {
-    flex: 1,
-  },
-  savedWordText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
-  },
-  savedWordDate: {
-    fontSize: 12,
-    color: '#999',
-  },
-  deleteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFF5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  savedWordItemPressed: { backgroundColor: '#F8F8F8', transform: [{ scale: 0.98 }] },
+  savedWordInfo: { flex: 1 },
+  savedWordText: { fontSize: 17, fontWeight: '600', color: '#000', marginBottom: 4 },
+  savedWordDate: { fontSize: 12, color: '#999' },
+  deleteButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center' },
 });
