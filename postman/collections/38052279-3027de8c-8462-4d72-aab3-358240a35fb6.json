@@ -768,9 +768,9 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseURL}}/api/v1/vocabulary/autocomplete?prefix=the",
+							"raw": "{{localURL}}/api/v1/vocabulary/autocomplete?prefix=thrOUgH",
 							"host": [
-								"{{baseURL}}"
+								"{{localURL}}"
 							],
 							"path": [
 								"api",
@@ -781,7 +781,7 @@
 							"query": [
 								{
 									"key": "prefix",
-									"value": "the"
+									"value": "thrOUgH"
 								}
 							]
 						}
