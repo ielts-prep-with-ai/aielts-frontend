@@ -140,7 +140,42 @@ class ApiServiceClass {
     // Parse response
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
-      return await response.json();
+      const jsonData = await response.json();
+
+      // Check if the response is a base64-encoded string (backend bug)
+      if (typeof jsonData === 'string' && jsonData.match(/^[A-Za-z0-9+/=]+$/)) {
+        console.warn('[API] Response appears to be base64 encoded, attempting to decode...');
+        try {
+          const decoded = atob(jsonData);
+          console.log('[API] Decoded base64 string:', decoded);
+          const parsedData = JSON.parse(decoded);
+          console.log('[API] Parsed decoded data:', parsedData);
+          return parsedData as T;
+        } catch (decodeError) {
+          console.error('[API] Failed to decode base64 response:', decodeError);
+          console.log('[API] Returning original data');
+          return jsonData as T;
+        }
+      }
+
+      return jsonData;
+    }
+
+    // Try to parse as text (might be base64)
+    const textResponse = await response.text();
+
+    // Check if it's a base64 string
+    if (textResponse && textResponse.match(/^[A-Za-z0-9+/=]+$/)) {
+      console.warn('[API] Text response appears to be base64 encoded, attempting to decode...');
+      try {
+        const decoded = atob(textResponse);
+        console.log('[API] Decoded base64 string:', decoded);
+        const parsedData = JSON.parse(decoded);
+        console.log('[API] Parsed decoded data:', parsedData);
+        return parsedData as T;
+      } catch (decodeError) {
+        console.error('[API] Failed to decode base64 response:', decodeError);
+      }
     }
 
     // Return empty object for non-JSON responses

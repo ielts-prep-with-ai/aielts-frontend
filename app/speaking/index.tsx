@@ -62,11 +62,62 @@ export default function SpeakingScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await ApiService.get<Topic[]>('/topics');
-      setTopics(data);
+      console.log('[SPEAKING] Fetching topics...');
+      const data = await ApiService.get<any>('/topics');
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[SPEAKING] RAW RESPONSE FROM BACKEND:');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[SPEAKING] Type:', typeof data);
+      console.log('[SPEAKING] Is Array?', Array.isArray(data));
+      console.log('[SPEAKING] Full Response:', JSON.stringify(data, null, 2));
+      console.log('═══════════════════════════════════════════════════════════');
+
+      let topicsArray: Topic[] = [];
+
+      // Handle different response formats
+      if (Array.isArray(data)) {
+        // Direct array response
+        topicsArray = data;
+        console.log('[SPEAKING] ✅ Direct array format, count:', data.length);
+      } else if (data && typeof data === 'object') {
+        // Check common response formats
+        if (Array.isArray(data.topics)) {
+          topicsArray = data.topics;
+          console.log('[SPEAKING] ✅ Found topics in data.topics, count:', data.topics.length);
+        } else if (Array.isArray(data.data)) {
+          topicsArray = data.data;
+          console.log('[SPEAKING] ✅ Found topics in data.data, count:', data.data.length);
+        } else if (Array.isArray(data.results)) {
+          topicsArray = data.results;
+          console.log('[SPEAKING] ✅ Found topics in data.results, count:', data.results.length);
+        } else {
+          console.error('[SPEAKING] ❌ Unknown response format. Keys:', Object.keys(data));
+          setTopics([]);
+          setError('Invalid response format from server');
+          return;
+        }
+      } else {
+        console.error('[SPEAKING] ❌ Response is not an array or object:', typeof data);
+        setTopics([]);
+        setError('Invalid response format from server');
+        return;
+      }
+
+      setTopics(topicsArray);
+      console.log('[SPEAKING] ✅ Topics set successfully, count:', topicsArray.length);
     } catch (err) {
-      console.error('Failed to load topics:', err);
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[SPEAKING] ❌ FAILED TO LOAD TOPICS');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[SPEAKING] Error:', err);
+      if (err instanceof Error) {
+        console.error('[SPEAKING] Error message:', err.message);
+        console.error('[SPEAKING] Error stack:', err.stack);
+      }
+      console.error('═══════════════════════════════════════════════════════════');
       setError(err instanceof Error ? err.message : 'Failed to load topics');
+      setTopics([]); // Ensure topics is always an array
     } finally {
       setLoading(false);
     }
@@ -118,7 +169,7 @@ export default function SpeakingScreen() {
       )}
 
       {/* Topic Cards */}
-      {!loading && !error && (
+      {!loading && !error && topics && Array.isArray(topics) && topics.length > 0 && (
         <View style={styles.topicsContainer}>
           {topics.map((topic, index) => (
             <TopicCard
@@ -130,6 +181,17 @@ export default function SpeakingScreen() {
               onPress={() => router.push(`/speaking/${topic.id}`)}
             />
           ))}
+        </View>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && topics && Array.isArray(topics) && topics.length === 0 && (
+        <View style={styles.centerContainer}>
+          <IconSymbol name="tray" size={48} color="#999" />
+          <Text style={styles.emptyText}>No topics available</Text>
+          <Pressable style={styles.retryButton} onPress={loadTopics}>
+            <Text style={styles.retryButtonText}>Refresh</Text>
+          </Pressable>
         </View>
       )}
     </ScrollView>
@@ -252,6 +314,13 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: '#FF6B6B',
+    marginTop: 12,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
     marginTop: 12,
     textAlign: 'center',
     paddingHorizontal: 32,

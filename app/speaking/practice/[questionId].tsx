@@ -1,5 +1,5 @@
 
-import { StyleSheet, ScrollView, View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform, Animated } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
@@ -84,6 +84,10 @@ export default function SpeakingPracticeScreen() {
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [isRecordingSession, setIsRecordingSession] = useState(false); // Track if in recording mode
   const [isPausedManual, setIsPausedManual] = useState(false); // Track pause state manually
+
+  // Animation values for record button
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Audio playback - create player with the recording URI
   const [audioSource, setAudioSource] = useState<string | null>(null);
@@ -201,11 +205,50 @@ export default function SpeakingPracticeScreen() {
     };
   }, []);
 
+  // Pulse animation for record button
+  useEffect(() => {
+    if (!isRecordingSession && !recordingUri && showRecording) {
+      // Create a breathing/pulse effect
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.08,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isRecordingSession, recordingUri, showRecording]);
+
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.92,
+      useNativeDriver: true,
+      friction: 3,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 3,
+    }).start();
   };
 
   const handleRecordToggle = async () => {
@@ -650,12 +693,24 @@ export default function SpeakingPracticeScreen() {
               <View style={styles.initialState}>
                 <Text style={styles.instructionText}>Tap the microphone to start recording</Text>
                 <Pressable
-                  style={styles.bigMicButton}
                   onPress={handleRecordToggle}
+                  onPressIn={handlePressIn}
+                  onPressOut={handlePressOut}
                 >
-                  <IconSymbol name="mic.fill" size={64} color="#fff" />
+                  <Animated.View
+                    style={[
+                      styles.bigMicButton,
+                      {
+                        transform: [
+                          { scale: Animated.multiply(pulseAnim, scaleAnim) }
+                        ],
+                      }
+                    ]}
+                  >
+                    <IconSymbol name="mic.fill" size={64} color="#fff" />
+                  </Animated.View>
                 </Pressable>
-                <Text style={styles.hintText}>Hold and speak clearly</Text>
+                <Text style={styles.hintText}>Tap to start speaking</Text>
               </View>
             )}
 
@@ -1066,51 +1121,59 @@ const styles = StyleSheet.create({
   },
   recordingCard: {
     backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 32,
-    minHeight: 300,
+    borderRadius: 28,
+    padding: 36,
+    minHeight: 320,
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 185, 240, 0.1)',
   },
 
   // STATE 1: Initial/Before Recording
   initialState: {
     alignItems: 'center',
-    gap: 24,
+    gap: 32,
+    paddingVertical: 20,
   },
   instructionText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   bigMicButton: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: '#FF6B6B',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#FF6B6B',
     shadowOffset: {
       width: 0,
-      height: 6,
+      height: 8,
     },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   hintText: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 15,
+    color: '#666',
     textAlign: 'center',
+    fontWeight: '500',
+    marginTop: 8,
   },
 
   // STATE 2: While Recording
@@ -1152,11 +1215,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   recordingWaveform: {
-    height: 100,
+    height: 120,
     justifyContent: 'center',
     backgroundColor: '#F8F9FA',
-    borderRadius: 16,
-    paddingHorizontal: 16,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   recordingWaveformBarActive: {
     backgroundColor: '#FF6B6B',
@@ -1284,9 +1355,9 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   waveformBar: {
-    width: 3,
+    width: 4,
     backgroundColor: '#E0E0E0',
-    borderRadius: 2,
+    borderRadius: 3,
   },
   recordsSection: {
     marginTop: 20,
