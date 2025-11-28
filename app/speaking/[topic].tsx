@@ -1,9 +1,9 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ApiService } from '@/services/api.service';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Speech from 'expo-speech';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 interface Question {
   id: number;
@@ -23,25 +23,88 @@ interface ApiResponse {
   page_size?: number;
 }
 
+interface DropdownProps {
+  label: string;
+  value: string;
+  options: { label: string; value: string }[];
+  onSelect: (value: string) => void;
+}
+
+const Dropdown = ({ label, value, options, onSelect }: DropdownProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <View style={styles.dropdown}>
+      <Pressable 
+        style={styles.dropdownButton} 
+        onPress={() => setIsOpen(true)}
+      >
+        <Text style={styles.dropdownButtonText} numberOfLines={1}>
+          {selectedOption?.label || 'Select'}
+        </Text>
+        <IconSymbol name="chevron.down" size={16} color="#fff" />
+      </Pressable>
+
+      <Modal
+        visible={isOpen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsOpen(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setIsOpen(false)}
+        >
+          <View style={styles.dropdownMenu}>
+            <Text style={styles.dropdownMenuTitle}>{label}</Text>
+            {options.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.dropdownMenuItem,
+                  option.value === value && styles.dropdownMenuItemActive
+                ]}
+                onPress={() => {
+                  onSelect(option.value);
+                  setIsOpen(false);
+                }}
+              >
+                <Text style={[
+                  styles.dropdownMenuItemText,
+                  option.value === value && styles.dropdownMenuItemTextActive
+                ]}>
+                  {option.label}
+                </Text>
+                {option.value === value && (
+                  <IconSymbol name="checkmark" size={18} color="#00B8FF" />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+};
+
 export default function TopicQuestionsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  // If file is named [topic].tsx, the ID comes as 'topic' param
-  // If file is named [id].tsx, the ID comes as 'id' param
-  const topicId = params.topic || params.id; // Get ID from route path
+  const topicId = params.topic || params.id;
   
-  const [activeFilter, setActiveFilter] = useState<'All' | 'AI generated' | 'Official'>('All');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterPart, setFilterPart] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('most');
   const [searchQuery, setSearchQuery] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'popularity' | 'part'>('popularity');
   const [pageIndex, setPageIndex] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [speakingQuestionId, setSpeakingQuestionId] = useState<number | null>(null);
 
-  // Topic ID mapping - not needed if you're getting ID from route
   const topicNameMap: Record<string, string> = {
     '1': 'Education',
     '2': 'Technology',
@@ -68,12 +131,11 @@ export default function TopicQuestionsScreen() {
         topic_id: topicId?.toString() || '1',
         page_index: (append ? pageIndex : 1).toString(),
         page_size: '10',
-        sort_by: sortBy,
+        sort_by: sortBy === 'most' ? 'popularity' : 'part',
       });
 
       const response = await ApiService.get<any>(`/questions?${params.toString()}`);
 
-      // Handle different response structures
       let questionData: Question[] = [];
 
       if (Array.isArray(response)) {
@@ -85,12 +147,7 @@ export default function TopicQuestionsScreen() {
       }
 
       console.log('[TopicQuestions] Fetched questions:', questionData.length);
-      if (questionData.length > 0) {
-        console.log('[TopicQuestions] First question ID:', questionData[0].id);
-        console.log('[TopicQuestions] Question IDs:', questionData.map(q => q.id));
-      }
 
-      // Check if there are more questions to load
       if (questionData.length < 10) {
         setHasMore(false);
       }
@@ -117,31 +174,32 @@ export default function TopicQuestionsScreen() {
     }
   }, [topicId, sortBy]);
 
-  // Load more when pageIndex changes
   useEffect(() => {
     if (topicId && pageIndex > 1) {
       fetchQuestions(true);
     }
   }, [pageIndex]);
 
-  // Cleanup: Stop speech when component unmounts
   useEffect(() => {
     return () => {
       Speech.stop();
     };
   }, []);
 
-  // Filter questions based on active filter and search query
+  // Filter questions
   const filteredQuestions = Array.isArray(questions) ? questions.filter((q) => {
-    const questionType = q.ai_generated ? 'AI generated' : 'Official';
-    const matchesFilter = activeFilter === 'All' || questionType === activeFilter;
-    const matchesSearch = q.question_text.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
+    // Type filter
+    if (filterType === 'ai' && !q.ai_generated) return false;
+    if (filterType === 'official' && q.ai_generated) return false;
+    
+    // Part filter
+    if (filterPart !== 'all' && q.part.toString() !== filterPart) return false;
+    
+    // Search filter
+    if (searchQuery && !q.question_text.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    
+    return true;
   }) : [];
-
-  const toggleSortBy = () => {
-    setSortBy((prev) => (prev === 'popularity' ? 'part' : 'popularity'));
-  };
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -153,32 +211,26 @@ export default function TopicQuestionsScreen() {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 20;
 
-    // Check if scrolled to bottom
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
       handleLoadMore();
     }
   };
 
-  // Handle text-to-speech for question
   const handleSpeakQuestion = async (questionId: number, questionText: string) => {
     try {
-      // If this question is already speaking, stop it
       if (speakingQuestionId === questionId) {
         await Speech.stop();
         setSpeakingQuestionId(null);
         return;
       }
 
-      // Stop any ongoing speech
       await Speech.stop();
-
-      // Start speaking the question
       setSpeakingQuestionId(questionId);
 
       Speech.speak(questionText, {
-        language: 'en-GB', // British English - sounds more natural for IELTS
-        pitch: 1.05, // Slightly higher pitch for more natural tone
-        rate: 0.85, // Slower, more conversational pace
+        language: 'en-GB',
+        pitch: 1.05,
+        rate: 0.85,
         onDone: () => setSpeakingQuestionId(null),
         onStopped: () => setSpeakingQuestionId(null),
         onError: () => setSpeakingQuestionId(null),
@@ -188,6 +240,24 @@ export default function TopicQuestionsScreen() {
       setSpeakingQuestionId(null);
     }
   };
+
+  const typeOptions = [
+    { label: 'All', value: 'all' },
+    { label: 'AI Generated', value: 'ai' },
+    { label: 'Official', value: 'official' }
+  ];
+
+  const partOptions = [
+    { label: 'All', value: 'all' },
+    { label: 'Part 1', value: '1' },
+    { label: 'Part 2', value: '2' },
+    { label: 'Part 3', value: '3' }
+  ];
+
+  const sortOptions = [
+    { label: 'Most Popular', value: 'most' },
+    { label: 'Least Popular', value: 'least' }
+  ];
 
   if (loading && questions.length === 0) {
     return (
@@ -222,7 +292,7 @@ export default function TopicQuestionsScreen() {
         </View>
       </View>
 
-      {/* Search and Filter Section */}
+      {/* Search Section */}
       <View style={styles.searchSection}>
         <View style={styles.searchContainer}>
           <TextInput
@@ -234,40 +304,42 @@ export default function TopicQuestionsScreen() {
           />
           <IconSymbol name="magnifyingglass" size={20} color="#000" />
         </View>
-        <Pressable style={styles.sortButton} onPress={toggleSortBy}>
-          <Text style={styles.sortButtonText}>
-            sort by {sortBy === 'popularity' ? 'Popularity' : 'Part'}
-          </Text>
-          <IconSymbol name="chevron.down" size={16} color="#fff" />
-        </Pressable>
       </View>
 
-      {/* Filter Pills */}
-      <View style={styles.filterContainer}>
-        <Pressable
-          style={[styles.filterPill, activeFilter === 'All' && styles.filterPillActive]}
-          onPress={() => setActiveFilter('All')}
+      {/* Filter and Sort Controls */}
+      <View style={styles.filterSection}>
+        <Pressable 
+          style={[styles.filterButton, filterType === 'all' && filterPart === 'all' && styles.filterButtonActive]}
+          onPress={() => {
+            setFilterType('all');
+            setFilterPart('all');
+          }}
         >
-          <Text style={[styles.filterPillText, activeFilter === 'All' && styles.filterPillTextActive]}>
+          <Text style={[styles.filterButtonText, filterType === 'all' && filterPart === 'all' && styles.filterButtonTextActive]}>
             All
           </Text>
         </Pressable>
-        <Pressable
-          style={[styles.filterPill, activeFilter === 'AI generated' && styles.filterPillActive]}
-          onPress={() => setActiveFilter('AI generated')}
-        >
-          <Text style={[styles.filterPillText, activeFilter === 'AI generated' && styles.filterPillTextActive]}>
-            AI generated
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.filterPill, activeFilter === 'Official' && styles.filterPillActive]}
-          onPress={() => setActiveFilter('Official')}
-        >
-          <Text style={[styles.filterPillText, activeFilter === 'Official' && styles.filterPillTextActive]}>
-            Official
-          </Text>
-        </Pressable>
+
+        <Dropdown
+          label="Type"
+          value={filterType}
+          options={typeOptions}
+          onSelect={setFilterType}
+        />
+
+        <Dropdown
+          label="Part"
+          value={filterPart}
+          options={partOptions}
+          onSelect={setFilterPart}
+        />
+
+        <Dropdown
+          label="Popularity"
+          value={sortBy}
+          options={sortOptions}
+          onSelect={setSortBy}
+        />
       </View>
 
       {/* Error Message */}
@@ -306,7 +378,6 @@ export default function TopicQuestionsScreen() {
                   </View>
                 </View>
 
-                {/* Question text with speaker icon */}
                 <View style={styles.questionTextContainer}>
                   <Text style={styles.questionText}>{q.question_text}</Text>
                   <Pressable
@@ -337,7 +408,6 @@ export default function TopicQuestionsScreen() {
               </View>
             ))}
             
-            {/* Loading More Indicator */}
             {loadingMore && (
               <View style={styles.loadingMoreContainer}>
                 <ActivityIndicator size="small" color="#00B8FF" />
@@ -345,7 +415,6 @@ export default function TopicQuestionsScreen() {
               </View>
             )}
             
-            {/* End of List Indicator */}
             {!hasMore && filteredQuestions.length > 0 && (
               <View style={styles.endOfListContainer}>
                 <Text style={styles.endOfListText}>No more questions</Text>
@@ -389,14 +458,11 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   searchSection: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    gap: 12,
     backgroundColor: '#fff',
   },
   searchContainer: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
@@ -411,46 +477,108 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000',
   },
-  sortButton: {
+  filterSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#00B8FF',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  sortButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  filterContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    gap: 10,
     backgroundColor: '#fff',
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
-  filterPill: {
+  filterButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    backgroundColor: '#fff',
+    height: 40,
+    justifyContent: 'center',
   },
-  filterPillActive: {
+  filterButtonActive: {
     backgroundColor: '#00B8FF',
     borderColor: '#00B8FF',
   },
-  filterPillText: {
-    fontSize: 13,
-    fontWeight: '500',
+  filterButtonText: {
+    fontSize: 14,
     color: '#666',
+    fontWeight: '500',
   },
-  filterPillTextActive: {
+  filterButtonTextActive: {
     color: '#fff',
+  },
+  dropdown: {
+    flex: 1,
+    minWidth: 90,
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#00B8FF',
+    height: 40,
+  },
+  dropdownButtonText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
+    marginRight: 4,
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dropdownMenu: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 8,
+    minWidth: 200,
+    maxWidth: 300,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  dropdownMenuTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  dropdownMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  dropdownMenuItemActive: {
+    backgroundColor: '#E6F7FF',
+  },
+  dropdownMenuItemText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+  },
+  dropdownMenuItemTextActive: {
+    color: '#00B8FF',
+    fontWeight: '600',
   },
   questionsList: {
     flex: 1,

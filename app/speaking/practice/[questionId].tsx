@@ -1,12 +1,12 @@
 
-import { StyleSheet, ScrollView, View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform, Animated } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
-import { QuestionsService, QuestionDetail, AnswersService } from '@/services';
-import { useAudioRecorder, useAudioRecorderState, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, AudioQuality, IOSOutputFormat } from 'expo-audio';
-import type { RecordingOptions } from 'expo-audio';
+import { QuestionDetail, QuestionsService } from '@/services';
 import { AuthService } from '@/services/auth.service';
+import type { RecordingOptions } from 'expo-audio';
+import { AudioQuality, IOSOutputFormat, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 /**
  * Custom recording preset optimized for backend OGG format requirement
@@ -103,7 +103,7 @@ export default function SpeakingPracticeScreen() {
   const practiceRecords: PracticeRecord[] = [
     {
       id: 1,
-      date: '2024-09-24',
+      date: '2025-09-24',
       time: '14:30',
       duration: '2:15',
       rating: 7.5,
@@ -128,15 +128,7 @@ export default function SpeakingPracticeScreen() {
         overall: 'Strong performance overall. Focus on improving fluency by practicing with more complex topics and reducing hesitation markers.'
       }
     },
-    { id: 2, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 6.5, maxRating: 9 },
-    { id: 3, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
-    { id: 4, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
-    { id: 5, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
-    { id: 6, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
-    { id: 7, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
-    { id: 8, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
-    { id: 9, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
-    { id: 10, date: '2024-09-24', time: '14:30', duration: '2:15', rating: 7.5, maxRating: 9 },
+    
   ];
 
   // Use topic name from question data if available, otherwise fall back to param

@@ -1,25 +1,74 @@
-import { StyleSheet, ScrollView, View, Text, TextInput, Pressable, Alert, Image } from 'react-native';
-import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/auth.context';
 import { useTheme } from '@/contexts/theme.context';
-import { useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
 import { UsersService } from '@/services';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 export default function EditProfileScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const router = useRouter();
 
+  // Loading states
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Form states
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
-  const [targetBand, setTargetBand] = useState('7.5');
-  const [profileImage, setProfileImage] = useState<string | null>(user?.picture || null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [targetBand, setTargetBand] = useState('');
+  const [testDate, setTestDate] = useState('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<{ uri: string; type: string; name: string } | null>(null);
+
+  // Load existing profile data
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[EDIT PROFILE] Loading existing profile...');
+      console.log('═══════════════════════════════════════════════════════════');
+
+      const profile = await UsersService.getProfile();
+
+      // Populate form with existing data
+      setName(profile.user_name || '');
+      setEmail(profile.email || '');
+      setPhone(profile.phone || '');
+      setBio(profile.bio || '');
+      setTargetBand(profile.target_band || '');
+      setTestDate(profile.test_date || '');
+      setProfileImage(profile.picture || null);
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[EDIT PROFILE] ✅ Profile loaded successfully');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[EDIT PROFILE] Profile:', profile);
+      console.log('═══════════════════════════════════════════════════════════');
+    } catch (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[EDIT PROFILE] ❌ Failed to load profile');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[EDIT PROFILE] Error:', error);
+      console.error('═══════════════════════════════════════════════════════════');
+
+      Alert.alert(
+        'Error',
+        'Failed to load profile. Please try again.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -46,15 +95,43 @@ export default function EditProfileScreen() {
       console.log('[EDIT PROFILE] Updating profile...');
       console.log('═══════════════════════════════════════════════════════════');
 
-      // Prepare update data
-      const updateData = {
-        name: name.trim(),
+      // Step 1: Upload avatar if changed
+      if (avatarFile) {
+        console.log('[EDIT PROFILE] Uploading new avatar...');
+        
+        try {
+          // Convert URI to Blob
+          const response = await fetch(avatarFile.uri);
+          const blob = await response.blob();
+          
+          // Upload avatar
+          const avatarResponse = await UsersService.uploadAvatar(blob);
+          
+          console.log('[EDIT PROFILE] ✅ Avatar uploaded:', avatarResponse.avatar_url);
+          
+          // Use the uploaded avatar URL
+          setProfileImage(avatarResponse.avatar_url);
+        } catch (avatarError) {
+          console.error('[EDIT PROFILE] ⚠️  Avatar upload failed:', avatarError);
+          Alert.alert(
+            'Warning',
+            'Failed to upload avatar, but profile will still be updated. Try uploading the avatar again later.'
+          );
+        }
+      }
+
+      // Step 2: Update profile data
+      const updateData: any = {
+        user_name: name.trim(),
         email: email.trim(),
-        phone: phone.trim() || undefined,
-        bio: bio.trim() || undefined,
-        target_band: targetBand.trim() || undefined,
-        picture: profileImage || undefined,
       };
+
+      // Add optional fields only if they have values
+      if (phone.trim()) updateData.phone = phone.trim();
+      if (bio.trim()) updateData.bio = bio.trim();
+      if (targetBand.trim()) updateData.target_band = targetBand.trim();
+      if (testDate.trim()) updateData.test_date = testDate.trim();
+      if (profileImage) updateData.picture = profileImage;
 
       console.log('[EDIT PROFILE] Update data:', updateData);
 
@@ -133,7 +210,10 @@ export default function EditProfileScreen() {
       options.push({
         text: 'Remove Photo',
         style: 'destructive',
-        onPress: () => setProfileImage(null),
+        onPress: () => {
+          setProfileImage(null);
+          setAvatarFile(null);
+        },
       });
     }
 
@@ -161,7 +241,15 @@ export default function EditProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setProfileImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      setProfileImage(asset.uri);
+      
+      // Store file info for upload
+      setAvatarFile({
+        uri: asset.uri,
+        type: 'image/jpeg',
+        name: `avatar_${Date.now()}.jpg`,
+      });
     }
   };
 
@@ -181,9 +269,27 @@ export default function EditProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setProfileImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      setProfileImage(asset.uri);
+      
+      // Store file info for upload
+      setAvatarFile({
+        uri: asset.uri,
+        type: asset.type === 'image' ? 'image/jpeg' : 'image/jpeg',
+        name: `avatar_${Date.now()}.jpg`,
+      });
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
@@ -292,31 +398,41 @@ export default function EditProfileScreen() {
         {/* Test Date Input */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Test Date</Text>
-          <Pressable
-            style={[styles.input, styles.dateInput, { backgroundColor: colors.background, borderColor: colors.border }]}
-            onPress={() => Alert.alert('Date Picker', 'Date picker coming soon!')}
-          >
-            <Text style={[styles.dateInputText, { color: colors.textSecondary }]}>Select test date</Text>
-            <IconSymbol name="calendar" size={20} color={colors.textSecondary} />
-          </Pressable>
+          <TextInput
+            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+            value={testDate}
+            onChangeText={setTestDate}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.textSecondary}
+          />
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+            Format: YYYY-MM-DD (e.g., 2024-12-31)
+          </Text>
         </View>
       </View>
 
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
         <Pressable
-          style={[styles.saveButton, { backgroundColor: colors.primary }]}
+          style={[styles.saveButton, { backgroundColor: colors.primary, opacity: isSaving ? 0.6 : 1 }]}
           onPress={handleSave}
           disabled={isSaving}
         >
           {isSaving ? (
-            <Text style={styles.saveButtonText}>Saving...</Text>
+            <>
+              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.saveButtonText}>Saving...</Text>
+            </>
           ) : (
             <Text style={styles.saveButtonText}>Save Changes</Text>
           )}
         </Pressable>
 
-        <Pressable style={[styles.cancelButton, { borderColor: colors.border }]} onPress={handleCancel}>
+        <Pressable 
+          style={[styles.cancelButton, { borderColor: colors.border, opacity: isSaving ? 0.6 : 1 }]} 
+          onPress={handleCancel}
+          disabled={isSaving}
+        >
           <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
         </Pressable>
       </View>
@@ -332,6 +448,15 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     paddingBottom: 40,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
   },
   header: {
     flexDirection: 'row',
@@ -417,13 +542,9 @@ const styles = StyleSheet.create({
     minHeight: 100,
     paddingTop: 16,
   },
-  dateInput: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dateInputText: {
-    fontSize: 16,
+  helperText: {
+    fontSize: 13,
+    marginTop: 4,
   },
   buttonContainer: {
     gap: 12,
@@ -433,6 +554,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
     shadowColor: '#3BB9F0',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,

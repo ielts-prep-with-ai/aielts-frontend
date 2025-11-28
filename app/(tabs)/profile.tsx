@@ -1,19 +1,99 @@
-import { StyleSheet, ScrollView, View, Text, Pressable, Alert, Image, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/auth.context';
 import { useTheme } from '@/contexts/theme.context';
-import { useState } from 'react';
-import { UsersService } from '@/services';
+import { UserProfile, UsersService } from '@/services';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const { isDarkMode, toggleTheme, colors } = useTheme();
   const router = useRouter();
 
+  // User profile state
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
   // Settings states
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    fetchUserProfile();
+    fetchUserAvatar();
+  }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const profile = await UsersService.getProfile();
+      setUserProfile(profile);
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[PROFILE] ✅ Profile fetched successfully');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[PROFILE] Profile:', JSON.stringify(profile, null, 2));
+      console.log('═══════════════════════════════════════════════════════════');
+    } catch (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[PROFILE] ❌ Failed to fetch profile');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[PROFILE] Error:', error);
+      console.error('═══════════════════════════════════════════════════════════');
+
+      Alert.alert(
+        'Error',
+        'Failed to load profile. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchUserAvatar = async () => {
+    try {
+      console.log('[PROFILE] Fetching user avatar...');
+      const avatarResponse = await UsersService.getAvatar();
+      setAvatarUrl(avatarResponse.avatar_url);
+      console.log('[PROFILE] ✅ Avatar fetched:', avatarResponse.avatar_url);
+    } catch (error) {
+      console.error('[PROFILE] Failed to fetch avatar:', error);
+      // Don't show alert for avatar failures, just use fallback
+    }
+  };
+
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('[PROFILE] 🔄 Refreshing profile data...');
+    console.log('═══════════════════════════════════════════════════════════');
+
+    try {
+      // Fetch both profile and avatar in parallel
+      await Promise.all([
+        fetchUserProfile(),
+        fetchUserAvatar(),
+      ]);
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[PROFILE] ✅ Refresh completed successfully');
+      console.log('═══════════════════════════════════════════════════════════');
+    } catch (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[PROFILE] ❌ Refresh failed');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('[PROFILE] Error:', error);
+      console.error('═══════════════════════════════════════════════════════════');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -122,8 +202,34 @@ export default function ProfileScreen() {
     }
   };
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  // Use avatar URL priority: API avatar > profile picture > user picture > fallback
+  const displayAvatarUrl = avatarUrl || userProfile?.picture || user?.picture;
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: colors.background }]} 
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+          colors={[colors.primary]}
+          title="Pull to refresh"
+          titleColor={colors.textSecondary}
+        />
+      }
+    >
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
@@ -132,9 +238,9 @@ export default function ProfileScreen() {
       {/* Profile Info Section */}
       <View style={[styles.profileSection, { backgroundColor: colors.cardBackground }]}>
         <View style={styles.avatarContainer}>
-          {user?.picture ? (
+          {displayAvatarUrl ? (
             <Image
-              source={{ uri: user.picture }}
+              source={{ uri: displayAvatarUrl }}
               style={styles.avatar}
               resizeMode="cover"
               onError={() => console.log('Error loading profile image')}
@@ -145,8 +251,26 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
-        <Text style={[styles.name, { color: colors.text }]}>{user?.name || 'User'}</Text>
-        <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email || 'email@example.com'}</Text>
+        <Text style={[styles.name, { color: colors.text }]}>
+          {userProfile?.user_name || user?.username || 'User'}
+        </Text>
+        <Text style={[styles.email, { color: colors.textSecondary }]}>
+          {userProfile?.email || user?.email || 'email@example.com'}
+        </Text>
+
+        {/* Display phone if available */}
+        {userProfile?.phone && (
+          <Text style={[styles.phone, { color: colors.textSecondary }]}>
+            {userProfile.phone}
+          </Text>
+        )}
+
+        {/* Display bio if available */}
+        {userProfile?.bio && (
+          <Text style={[styles.bio, { color: colors.text }]}>
+            {userProfile.bio}
+          </Text>
+        )}
 
         <Pressable style={styles.editButton} onPress={handleEditProfile}>
           <IconSymbol name="pencil" size={16} color={colors.primary} />
@@ -165,10 +289,29 @@ export default function ProfileScreen() {
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Day Streak</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.statNumber, { color: colors.primary }]}>7.5</Text>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>
+            {userProfile?.target_band || '7.5'}
+          </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Target Band</Text>
         </View>
       </View>
+
+      {/* Test Date if available */}
+      {userProfile?.test_date && (
+        <View style={[styles.testDateCard, { backgroundColor: colors.cardBackground }]}>
+          <IconSymbol name="calendar" size={24} color={colors.primary} />
+          <View style={styles.testDateInfo}>
+            <Text style={[styles.testDateLabel, { color: colors.textSecondary }]}>Test Date</Text>
+            <Text style={[styles.testDateValue, { color: colors.text }]}>
+              {new Date(userProfile.test_date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Account Settings Section */}
       <View style={[styles.section, { backgroundColor: colors.cardBackground }]}>
@@ -299,6 +442,15 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 40,
   },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
   header: {
     marginBottom: 24,
   },
@@ -343,7 +495,19 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 16,
     color: '#666',
+    marginBottom: 8,
+  },
+  phone: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  bio: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
     marginBottom: 16,
+    paddingHorizontal: 20,
   },
   editButton: {
     flexDirection: 'row',
@@ -387,6 +551,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
     textAlign: 'center',
+  },
+  testDateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  testDateInfo: {
+    flex: 1,
+  },
+  testDateLabel: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+  },
+  testDateValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
   },
   section: {
     backgroundColor: '#fff',

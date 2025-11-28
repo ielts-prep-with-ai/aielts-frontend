@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { AuthService, AuthData, OAuthProvider } from '@/services/auth.service';
+import { AuthData, AuthService, OAuthProvider } from '@/services/auth.service';
 import { useRouter } from 'expo-router';
+import React, { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 
 interface AuthContextType {
   isLoading: boolean;
@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔄 [AUTH CONTEXT] State before check:');
     console.log('   - isLoading:', isLoading);
     console.log('   - isAuthenticated:', isAuthenticated);
-    console.log('   - user:', user?.name || 'null');
+    console.log('   - user:', user?.username || 'null');
 
     try {
       console.log('🔄 [AUTH CONTEXT] Calling AuthService.isAuthenticated()...');
@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('───────────────────────────────────────────────────────────');
       console.log('✅ [AUTH CONTEXT] Auth data received from service');
       console.log('👤 [AUTH CONTEXT] User data to set in state:');
-      console.log('   - Name:', authData.user.name);
+      console.log('   - Username:', authData.user.username);
       console.log('   - Email:', authData.user.email);
       console.log('   - ID:', authData.user.id);
       console.log('   - Token length:', authData.token.length);
@@ -174,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🚪 [AUTH CONTEXT] User Initiated Logout');
     console.log('═══════════════════════════════════════════════════════════');
     console.log('🚪 [AUTH CONTEXT] Current state before logout:');
-    console.log('   - User:', user?.name || 'null');
+    console.log('   - User:', user?.username || 'null');
     console.log('   - isAuthenticated:', isAuthenticated);
 
     try {

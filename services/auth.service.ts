@@ -1,6 +1,6 @@
+import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -17,7 +17,8 @@ export interface AuthData {
   user: {
     id: string;
     email: string;
-    name: string;
+    // name: string;
+    username: string;
     picture?: string;
   };
 }
