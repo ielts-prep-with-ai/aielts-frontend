@@ -536,7 +536,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"target_score\": 9.0,\r\n    \"current_level\": -3\r\n}",
+							"raw": "{   \r\n    \"target_score\": 9.0,\r\n    \"current_level\": 2.0\r\n\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -544,9 +544,9 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseURL}}/api/v1/users/me",
+							"raw": "{{localURL}}/api/v1/users/me",
 							"host": [
-								"{{baseURL}}"
+								"{{localURL}}"
 							],
 							"path": [
 								"api",
@@ -589,6 +589,87 @@
 								"v1",
 								"users",
 								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Me Upload Avatar",
+					"id": "38052279-107e886e-2f52-4e6e-8cb5-de96634cf576",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEzNzY3NmYxLWM2MTQtNDdkYS1iNGQ1LWIxMjNjODQxM2ZlOSIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNS0xMS0yOFQxNzoxMDo1NS43OTMzODcxMDNaIiwiZXhwaXJlZF9hdCI6IjIwMjUtMTItMjhUMTc6MTA6NTUuNzkzMzg3MjAzWiJ9.22faGgakIYDxS_ksRfyraPk3LX55A5pJ51DncMQ6W5M",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "avatar_file",
+									"type": "file",
+									"uuid": "2fe02f80-07d9-427e-82c2-b99ac7c9824a",
+									"src": "/C:/Users/hoang/Downloads/logo.jpg"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/v1/users/me/avatar",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"me",
+								"avatar"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Me Get Avatar URL",
+					"id": "38052279-553cbbac-b746-44a1-8e2b-7115608b2b3e",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjgxZjIxNjJmLWU4M2ItNDNhNi1iZjE4LWE2YWUxOTA2ODA5MiIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNS0xMS0yMFQxODoyOTowNC4wNjc3ODk5NVoiLCJleHBpcmVkX2F0IjoiMjAyNS0xMi0yMFQxODoyOTowNC4wNjc3OTAwMloifQ.kQ9DbY22iRN4fKmaU3Ad8NrdMSRxbD1hp7VDTLg6c-8",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/v1/users/me/avatar",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"me",
+								"avatar"
 							]
 						}
 					},
