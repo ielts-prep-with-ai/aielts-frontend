@@ -625,9 +625,9 @@
 							]
 						},
 						"url": {
-							"raw": "{{localURL}}/api/v1/users/me/avatar",
+							"raw": "{{baseURL}}/api/v1/users/me/avatar",
 							"host": [
-								"{{localURL}}"
+								"{{baseURL}}"
 							],
 							"path": [
 								"api",
