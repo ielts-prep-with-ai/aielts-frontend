@@ -595,7 +595,7 @@
 					"response": []
 				},
 				{
-					"name": "New Request",
+					"name": "Me Upload Avatar",
 					"id": "38052279-107e886e-2f52-4e6e-8cb5-de96634cf576",
 					"protocolProfileBehavior": {
 						"disableBodyPruning": true
