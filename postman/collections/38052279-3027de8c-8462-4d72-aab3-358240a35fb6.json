@@ -536,7 +536,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"target_score\": 9.0,\r\n    \"current_level\": -3\r\n}",
+							"raw": "{   \r\n    \"target_score\": 9.0,\r\n    \"current_level\": 2.0\r\n\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -544,9 +544,9 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseURL}}/api/v1/users/me",
+							"raw": "{{localURL}}/api/v1/users/me",
 							"host": [
-								"{{baseURL}}"
+								"{{localURL}}"
 							],
 							"path": [
 								"api",
