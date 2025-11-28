@@ -641,14 +641,41 @@
 					"response": []
 				},
 				{
-					"name": "New Request",
+					"name": "Me Get Avatar URL",
 					"id": "38052279-553cbbac-b746-44a1-8e2b-7115608b2b3e",
 					"protocolProfileBehavior": {
 						"disableBodyPruning": true
 					},
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjgxZjIxNjJmLWU4M2ItNDNhNi1iZjE4LWE2YWUxOTA2ODA5MiIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNS0xMS0yMFQxODoyOTowNC4wNjc3ODk5NVoiLCJleHBpcmVkX2F0IjoiMjAyNS0xMi0yMFQxODoyOTowNC4wNjc3OTAwMloifQ.kQ9DbY22iRN4fKmaU3Ad8NrdMSRxbD1hp7VDTLg6c-8",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
-						"header": []
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{   \r\n    \"target_score\": 9.0,\r\n    \"current_level\": 2.0\r\n\r\n}"
+						},
+						"url": {
+							"raw": "{{localURL}}/api/v1/users/me/avatar",
+							"host": [
+								"{{localURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"me",
+								"avatar"
+							]
+						}
 					},
 					"response": []
 				}
