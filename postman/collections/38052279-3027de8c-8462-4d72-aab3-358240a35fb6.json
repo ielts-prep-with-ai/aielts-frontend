@@ -601,8 +601,42 @@
 						"disableBodyPruning": true
 					},
 					"request": {
-						"method": "GET",
-						"header": []
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEzNzY3NmYxLWM2MTQtNDdkYS1iNGQ1LWIxMjNjODQxM2ZlOSIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNS0xMS0yOFQxNzoxMDo1NS43OTMzODcxMDNaIiwiZXhwaXJlZF9hdCI6IjIwMjUtMTItMjhUMTc6MTA6NTUuNzkzMzg3MjAzWiJ9.22faGgakIYDxS_ksRfyraPk3LX55A5pJ51DncMQ6W5M",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "avatar_file",
+									"type": "file",
+									"uuid": "2fe02f80-07d9-427e-82c2-b99ac7c9824a",
+									"src": "/C:/Users/hoang/Downloads/logo.jpg"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{localURL}}/api/v1/users/me/avatar",
+							"host": [
+								"{{localURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"me",
+								"avatar"
+							]
+						}
 					},
 					"response": []
 				}
