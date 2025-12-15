@@ -1,8 +1,9 @@
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
 import { SubmitAnswerResponse, UserAnswerWithEvaluation } from './types';
+import { API_CONFIG } from '../config/api.config';
 
-const API_BASE_URL = 'https://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
+const API_BASE_URL = API_CONFIG.API_BASE_URL;
 
 /**
  * Answers Service - Handles all user answer-related API calls
@@ -55,7 +56,6 @@ class AnswersServiceClass {
 
       const result = await response.json();
       console.log('[AnswersService] Answer submitted successfully');
-      console.log('[AnswersService] User answer ID:', result.user_answer_id);
       return result;
     } catch (error) {
       console.error('[AnswersService] Failed to submit answer:', error);

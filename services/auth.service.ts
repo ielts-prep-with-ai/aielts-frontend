@@ -1,6 +1,7 @@
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
+import { API_CONFIG } from '../config/api.config';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -8,8 +9,7 @@ const AUTH_TOKEN_KEY = 'aielts_auth_token';
 const REFRESH_TOKEN_KEY = 'aielts_refresh_token';
 const USER_DATA_KEY = 'aielts_user_data';
 
-const API_BASE_URL = 'https://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
-// const API_BASE_URL = 'http://localhost:8301/api/v1';
+const API_BASE_URL = API_CONFIG.API_BASE_URL;
 
 export interface AuthData {
   token: string;

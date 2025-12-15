@@ -1,7 +1,7 @@
 import { AuthService } from './auth.service';
+import { API_CONFIG } from '../config/api.config';
 
-const API_BASE_URL = 'https://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
-// const API_BASE_URL = 'http://localhost:8301/api/v1';
+const API_BASE_URL = API_CONFIG.API_BASE_URL;
 
 export interface ApiRequestOptions extends RequestInit {
   skipAuth?: boolean;

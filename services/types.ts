@@ -151,15 +151,13 @@ export interface SubmitAnswerResponse {
 
 export interface CriteriaFeedback {
   score: number;
-  strengths: string[];
-  weaknesses: string[];
-  suggestions: string[];
+  feedback: string;
 }
 
 export interface FeedbackDetails {
   fluency?: CriteriaFeedback;
-  vocabulary?: CriteriaFeedback;
-  grammar?: CriteriaFeedback;
+  lexical_resource?: CriteriaFeedback;
+  grammar_range_accuracy?: CriteriaFeedback;
   pronunciation?: CriteriaFeedback;
   [key: string]: CriteriaFeedback | undefined;
 }

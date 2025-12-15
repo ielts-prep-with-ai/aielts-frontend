@@ -1,8 +1,8 @@
 import { AuthService } from './auth.service';
 import { WebSocketFeedbackMessage } from './types';
+import { API_CONFIG } from '../config/api.config';
 
-const WS_BASE_URL = 'wss://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
-// const WS_BASE_URL = 'ws://localhost:8301/api/v1';
+const WS_BASE_URL = API_CONFIG.WS_BASE_URL;
 
 type FeedbackCallback = (message: WebSocketFeedbackMessage) => void;
 type ErrorCallback = (error: Event) => void;

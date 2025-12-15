@@ -2,11 +2,13 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { QuestionDetail, QuestionsService } from '@/services';
 import { AuthService } from '@/services/auth.service';
+import { AnswersService } from '@/services/answers.service';
 import type { RecordingOptions } from 'expo-audio';
 import { AudioQuality, IOSOutputFormat, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Speech from 'expo-speech';
 
 /**
  * Custom recording preset optimized for backend OGG format requirement
@@ -59,7 +61,10 @@ interface PracticeRecord {
   time: string;
   duration: string;
   rating: number;
-  maxRating: number; 
+  maxRating: number;
+  answerText: string;
+  audioUrl: string;
+  submittedAt: string;
   feedback?: {
     fluency: { score: number; description: string };
     vocabulary: { score: number; description: string };
@@ -85,6 +90,9 @@ export default function SpeakingPracticeScreen() {
   const [isRecordingSession, setIsRecordingSession] = useState(false); // Track if in recording mode
   const [isPausedManual, setIsPausedManual] = useState(false); // Track pause state manually
 
+  // Track if this is the initial mount
+  const isInitialMount = useRef(true);
+
   // Animation values for record button
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -99,40 +107,74 @@ export default function SpeakingPracticeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Mock practice records - replace with API call
-  const practiceRecords: PracticeRecord[] = [
-    {
-      id: 1,
-      date: '2025-09-24',
-      time: '14:30',
-      duration: '2:15',
-      rating: 7.5,
-      maxRating: 9,
-      feedback: {
-        fluency: {
-          score: 7.5,
-          description: 'Good flow of speech with some natural pauses. Try to reduce hesitations and use more linking words to connect your ideas smoothly.'
-        },
-        vocabulary: {
-          score: 9,
-          description: 'Excellent range of vocabulary with appropriate word choice. You demonstrated good use of less common vocabulary items.'
-        },
-        grammar: {
-          score: 7.5,
-          description: 'Generally accurate with good variety of sentence structures. Minor errors in complex sentences that don\'t impede communication.'
-        },
-        pronunciation: {
-          score: 9,
-          description: 'Clear pronunciation with good stress and intonation patterns. Very easy to understand throughout.'
-        },
-        overall: 'Strong performance overall. Focus on improving fluency by practicing with more complex topics and reducing hesitation markers.'
-      }
-    },
-    
-  ];
+  // Submission state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // User answers state
+  const [userAnswers, setUserAnswers] = useState<PracticeRecord[]>([]);
+  const [isLoadingAnswers, setIsLoadingAnswers] = useState(false);
+  const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
+
+  // Audio player for practice records
+  const [practiceAudioSource, setPracticeAudioSource] = useState<string | null>(null);
+  const practiceAudioPlayer = useAudioPlayer(practiceAudioSource);
+  const practicePlayerStatus = useAudioPlayerStatus(practiceAudioPlayer);
 
   // Use topic name from question data if available, otherwise fall back to param
   const topicTitle = question?.topic_name || 'Practice Questions';
+
+  // Format time in MM:SS
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Handle playing/pausing practice record audio
+  const handlePlayPracticeAudio = async (recordId: number, audioUrl: string) => {
+    try {
+      if (playingAudioId === recordId) {
+        // If this audio is already playing, pause it
+        if (practicePlayerStatus.playing) {
+          practiceAudioPlayer.pause();
+        } else {
+          practiceAudioPlayer.play();
+        }
+      } else {
+        // Stop current audio and play new one
+        if (practiceAudioPlayer && practicePlayerStatus.isLoaded) {
+          practiceAudioPlayer.pause();
+        }
+
+        console.log('[Audio] Loading audio for record:', recordId);
+        setPlayingAudioId(recordId);
+        setPracticeAudioSource(audioUrl);
+        // Audio will auto-play via useEffect when loaded
+      }
+    } catch (error) {
+      console.error('[Audio] Failed to play audio:', error);
+      Alert.alert('Error', 'Failed to play audio recording');
+    }
+  };
+
+  // Auto-play audio when it's loaded
+  useEffect(() => {
+    if (practicePlayerStatus.isLoaded && playingAudioId !== null && !practicePlayerStatus.playing) {
+      // Only auto-play if we just loaded a new audio (not resuming after pause)
+      if (practicePlayerStatus.currentTime === 0) {
+        console.log('[Audio] Audio loaded, starting playback');
+        practiceAudioPlayer.play();
+      }
+    }
+  }, [practicePlayerStatus.isLoaded, playingAudioId]);
+
+  // Reset playing audio when audio ends
+  useEffect(() => {
+    if (practicePlayerStatus.isLoaded && !practicePlayerStatus.playing && practicePlayerStatus.currentTime === practicePlayerStatus.duration) {
+      setPlayingAudioId(null);
+    }
+  }, [practicePlayerStatus.playing, practicePlayerStatus.currentTime]);
 
   // Fetch question data when component mounts
   useEffect(() => {
@@ -168,6 +210,141 @@ export default function SpeakingPracticeScreen() {
     fetchQuestion();
   }, [questionId]);
 
+  // Function to fetch user answers
+  const fetchUserAnswers = async () => {
+    if (!questionId) return;
+
+    try {
+      setIsLoadingAnswers(true);
+      console.log('[SpeakingPractice] Fetching user answers for question:', questionId);
+      const answers = await AnswersService.getUserAnswers(Number(questionId));
+      console.log('[SpeakingPractice] User answers received:', answers.length);
+
+      // Transform API data to PracticeRecord format
+      const transformedRecords: PracticeRecord[] = answers.map(answer => {
+        const submittedDate = new Date(answer.submitted_at);
+        const date = submittedDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        const time = submittedDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+
+        return {
+          id: answer.id,
+          date,
+          time,
+          duration: 'N/A', // Duration not available from API
+          rating: answer.overall_score || 0,
+          maxRating: 9,
+          answerText: answer.answer_text,
+          audioUrl: answer.presigned_url,
+          submittedAt: answer.submitted_at,
+          feedback: answer.feedback_details ? {
+            fluency: {
+              score: answer.feedback_details.fluency?.score || 0,
+              description: answer.feedback_details.fluency?.feedback || 'No feedback available'
+            },
+            vocabulary: {
+              score: answer.feedback_details.lexical_resource?.score || 0,
+              description: answer.feedback_details.lexical_resource?.feedback || 'No feedback available'
+            },
+            grammar: {
+              score: answer.feedback_details.grammar_range_accuracy?.score || 0,
+              description: answer.feedback_details.grammar_range_accuracy?.feedback || 'No feedback available'
+            },
+            pronunciation: {
+              score: answer.feedback_details.pronunciation?.score || 0,
+              description: answer.feedback_details.pronunciation?.feedback || 'No feedback available'
+            },
+            overall: answer.overall_feedback || 'No overall feedback available'
+          } : undefined
+        };
+      });
+
+      setUserAnswers(transformedRecords);
+    } catch (err) {
+      console.error('[SpeakingPractice] Failed to fetch user answers:', err);
+    } finally {
+      setIsLoadingAnswers(false);
+    }
+  };
+
+  // Fetch user answers when component mounts
+  useEffect(() => {
+    fetchUserAnswers();
+  }, [questionId]);
+
+  // Reset recording state when coming back from feedback
+  useFocusEffect(
+    useCallback(() => {
+      // Skip reset on initial mount
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        console.log('[SpeakingPractice] Initial mount - skipping reset');
+        return;
+      }
+
+      console.log('[SpeakingPractice] Returning from feedback - resetting recording state and refreshing answers');
+
+      // Reset all recording-related state
+      const resetRecordingState = async () => {
+        try {
+          // Stop recording if in progress
+          if (recorderState.isRecording) {
+            await audioRecorder.stop();
+          }
+
+          // Stop playback if playing
+          if (audioPlayer && playerStatus.isLoaded) {
+            audioPlayer.pause();
+          }
+
+          // Stop practice audio if playing
+          if (practiceAudioPlayer && practicePlayerStatus.isLoaded) {
+            practiceAudioPlayer.pause();
+          }
+
+          // Reset all state variables
+          setRecordingUri(null);
+          setIsRecordingSession(false);
+          setIsPausedManual(false);
+          setTime(0);
+          setAudioSource(null);
+          setIsSubmitting(false);
+          setPlayingAudioId(null);
+          setPracticeAudioSource(null);
+
+          // Clear timer
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+
+          // Reset audio mode
+          await setAudioModeAsync({
+            playsInSilentMode: true,
+            staysActiveInBackground: false,
+            shouldPlayInBackground: false,
+          });
+
+          // Refresh user answers list
+          await fetchUserAnswers();
+
+          console.log('[SpeakingPractice] Recording state reset complete');
+        } catch (error) {
+          console.error('[SpeakingPractice] Error resetting recording state:', error);
+        }
+      };
+
+      resetRecordingState();
+    }, [])
+  );
+
   useEffect(() => {
     if (isRecordingSession && !isPausedManual) {
       timerRef.current = setInterval(() => {
@@ -189,9 +366,17 @@ export default function SpeakingPracticeScreen() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Stop practice audio
+      if (practiceAudioPlayer && practicePlayerStatus.isLoaded) {
+        practiceAudioPlayer.pause();
+      }
+
       if (recorderState.isRecording) {
         audioRecorder.stop().then(() => {
-          setAudioModeAsync({ allowsRecording: false });
+          setAudioModeAsync({
+            allowsRecording: false,
+            playsInSilentMode: true // Keep playback enabled in silent mode
+          });
         }).catch(console.error);
       }
     };
@@ -219,13 +404,6 @@ export default function SpeakingPracticeScreen() {
       pulseAnim.setValue(1);
     }
   }, [isRecordingSession, recordingUri, showRecording]);
-
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -294,9 +472,10 @@ export default function SpeakingPracticeScreen() {
         setRecordingUri(uri);
         setIsRecordingSession(false);
 
-        // Reset audio mode after recording
+        // Reset audio mode after recording - keep playsInSilentMode for playback
         await setAudioModeAsync({
           allowsRecording: false,
+          playsInSilentMode: true, // Keep this enabled for playback
         });
 
         // Load the recording into the audio player
@@ -363,6 +542,7 @@ export default function SpeakingPracticeScreen() {
         try {
           await setAudioModeAsync({
             allowsRecording: false,
+            playsInSilentMode: true, // Keep playback enabled in silent mode
           });
         } catch (audioModeError) {
           console.warn('[Recording] Failed to reset audio mode:', audioModeError);
@@ -390,6 +570,12 @@ export default function SpeakingPracticeScreen() {
     if (!recordingUri || !audioSource) return;
 
     try {
+      // Ensure audio mode is configured for playback in silent mode
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true, // Enable playback in silent mode
+      });
+
       if (playerStatus.playing) {
         audioPlayer.pause();
       } else {
@@ -405,6 +591,12 @@ export default function SpeakingPracticeScreen() {
   };
 
   const handleSave = async () => {
+    // Prevent spam clicking
+    if (isSubmitting) {
+      console.log('[AUDIO UPLOAD] Already submitting, ignoring click');
+      return;
+    }
+
     try {
       if (!recordingUri) {
         Alert.alert('No Recording', 'Please record your answer first.');
@@ -415,6 +607,9 @@ export default function SpeakingPracticeScreen() {
         Alert.alert('Error', 'Question ID is missing.');
         return;
       }
+
+      // Set submitting state to prevent multiple submissions
+      setIsSubmitting(true);
 
       // Stop playback before submitting - only if audio source is loaded
       if (audioSource && playerStatus.playing) {
@@ -433,6 +628,7 @@ export default function SpeakingPracticeScreen() {
         platform: Platform.OS,
         needsConversion: false,
       };
+      console.log("the mime type is ",mimeType);
 
       // Determine MIME type based on file extension
       switch (fileExtension) {
@@ -519,6 +715,7 @@ export default function SpeakingPracticeScreen() {
         }
 
         Alert.alert('Upload Failed', errorMessage);
+        setIsSubmitting(false); // Reset submitting state on error
         return;
       }
 
@@ -530,24 +727,31 @@ export default function SpeakingPracticeScreen() {
       console.log('[AUDIO UPLOAD] BACKEND RESPONSE:');
       console.log(JSON.stringify(result, null, 2));
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('[AUDIO UPLOAD] User Answer ID:', result.user_answer_id);
-      console.log('[AUDIO UPLOAD] Status:', result.status);
-      console.log('[AUDIO UPLOAD] Message:', result.message);
+
+      // Fetch the answers list to get the ID of the answer we just submitted
+      console.log('[AUDIO UPLOAD] Fetching answers to get the latest answer ID...');
+      const answers = await AnswersService.getUserAnswers(questionId);
+
+      // The most recent answer (first in the array) should be the one we just submitted
+      const latestAnswer = answers[0];
+
+      if (!latestAnswer) {
+        throw new Error('Failed to retrieve submitted answer');
+      }
+
+      console.log('[AUDIO UPLOAD] Latest answer ID:', latestAnswer.id);
       console.log('═══════════════════════════════════════════════════════════');
 
-      Alert.alert(
-        'Success!',
-        `Your answer has been submitted successfully!\n\nAnswer ID: ${result.user_answer_id}\n\nAI evaluation will be processed shortly.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Reset the recording
-              handleReset();
-            }
-          }
-        ]
-      );
+      // Redirect to feedback page
+      router.push({
+        pathname: `/speaking/feedback/${latestAnswer.id}`,
+        params: {
+          questionId: questionId.toString(),
+        }
+      });
+
+      // Reset states after navigation
+      setIsSubmitting(false);
 
     } catch (error) {
       console.error('═══════════════════════════════════════════════════════════');
@@ -564,6 +768,38 @@ export default function SpeakingPracticeScreen() {
         'Error',
         error instanceof Error ? error.message : 'Failed to submit recording. Please try again.'
       );
+
+      setIsSubmitting(false); // Reset submitting state on error
+    }
+  };
+
+  const handleSpeakQuestion = async () => {
+    if (!question?.question_text) {
+      return;
+    }
+
+    try {
+      // Check if already speaking, if so stop it
+      const isSpeaking = await Speech.isSpeakingAsync();
+      if (isSpeaking) {
+        await Speech.stop();
+        return;
+      }
+
+      // Configure audio mode to play even in silent mode (important for iOS)
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true, // This allows playback even when device is in silent mode
+      });
+
+      // Speak the question text
+      Speech.speak(question.question_text, {
+        language: 'en-US',
+        pitch: 1.0,
+        rate: 0.9, // Slightly slower for better understanding
+      });
+    } catch (error) {
+      console.error('[TTS] Failed to speak question:', error);
     }
   };
 
@@ -670,7 +906,7 @@ export default function SpeakingPracticeScreen() {
               <View style={styles.partBadge}>
                 <Text style={styles.partBadgeText}>Part {question.part}</Text>
               </View>
-              <Pressable style={styles.audioButton}>
+              <Pressable style={styles.audioButton} onPress={handleSpeakQuestion}>
                 <IconSymbol name="speaker.wave.2.fill" size={20} color="#3BB9F0" />
               </Pressable>
             </View>
@@ -813,9 +1049,19 @@ export default function SpeakingPracticeScreen() {
                   </Pressable>
                 </View>
 
-                <Pressable style={styles.sendButton} onPress={handleSave}>
-                  <Text style={styles.sendButtonText}>Submit to AI Analysis</Text>
-                  <IconSymbol name="arrow.right.circle.fill" size={24} color="#fff" />
+                <Pressable
+                  style={[styles.sendButton, isSubmitting && styles.sendButtonDisabled]}
+                  onPress={handleSave}
+                  disabled={isSubmitting}
+                >
+                  <Text style={styles.sendButtonText}>
+                    {isSubmitting ? 'Submitting...' : 'Submit to AI Analysis'}
+                  </Text>
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <IconSymbol name="arrow.right.circle.fill" size={24} color="#fff" />
+                  )}
                 </Pressable>
               </View>
             )}
@@ -846,7 +1092,7 @@ export default function SpeakingPracticeScreen() {
             <View style={styles.partBadge}>
               <Text style={styles.partBadgeText}>Part {question.part}</Text>
             </View>
-            <Pressable style={styles.audioButton}>
+            <Pressable style={styles.audioButton} onPress={handleSpeakQuestion}>
               <IconSymbol name="speaker.wave.2.fill" size={20} color="#3BB9F0" />
             </Pressable>
           </View>
@@ -864,7 +1110,19 @@ export default function SpeakingPracticeScreen() {
           <Text style={styles.recordsTitle}>Your Records</Text>
           <Text style={styles.recordsSubtitle}>Track your IELTS speaking practice progress</Text>
 
-          {practiceRecords.map((record, index) => (
+          {isLoadingAnswers ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#3BB9F0" />
+              <Text style={styles.loadingText}>Loading your practice history...</Text>
+            </View>
+          ) : userAnswers.length === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <IconSymbol name="text.bubble" size={48} color="#CCC" />
+              <Text style={styles.emptyStateText}>No practice records yet</Text>
+              <Text style={styles.emptyStateSubtext}>Start practicing to see your progress here</Text>
+            </View>
+          ) : (
+            userAnswers.map((record, index) => (
             <View key={record.id} style={styles.recordItem}>
               <View style={styles.recordMainInfo}>
                 <View style={styles.recordInfoItem}>
@@ -877,17 +1135,14 @@ export default function SpeakingPracticeScreen() {
                   <Text style={styles.recordInfoText}>{record.time}</Text>
                 </View>
 
-                <View style={styles.recordInfoItem}>
-                  <IconSymbol name="play.fill" size={18} color="#666" />
-                  <Text style={styles.recordInfoText}>{record.duration}</Text>
-                </View>
-
                 <View style={[
                   styles.ratingBadge,
-                  record.rating < 7 ? styles.ratingBadgeYellow : styles.ratingBadgeBlue
+                  record.rating >= 7 ? styles.ratingBadgeGreen :
+                  record.rating >= 5 ? styles.ratingBadgeBlue :
+                  styles.ratingBadgeRed
                 ]}>
                   <IconSymbol name="star.fill" size={14} color="#fff" />
-                  <Text style={styles.ratingText}>{record.rating}/{record.maxRating}</Text>
+                  <Text style={styles.ratingText}>{record.rating.toFixed(1)}/{record.maxRating}</Text>
                 </View>
 
                 <Pressable
@@ -902,8 +1157,65 @@ export default function SpeakingPracticeScreen() {
                 </Pressable>
               </View>
 
-              {expandedRecords.includes(record.id) && record.feedback && (
+              {expandedRecords.includes(record.id) && (
                 <View style={styles.recordExpandedContent}>
+                  {/* Answer Text */}
+                  <View style={styles.answerTextSection}>
+                    <View style={styles.answerTextHeader}>
+                      <IconSymbol name="text.bubble.fill" size={18} color="#3BB9F0" />
+                      <Text style={styles.answerTextTitle}>Your Answer</Text>
+                    </View>
+                    <Text style={styles.answerTextContent}>
+                      {record.answerText || 'Transcription in progress...'}
+                    </Text>
+                  </View>
+
+                  {/* Audio Player */}
+                  {record.audioUrl && (
+                    <View style={styles.audioPlayerSection}>
+                      <View style={styles.audioPlayerHeader}>
+                        <IconSymbol name="waveform" size={18} color="#3BB9F0" />
+                        <Text style={styles.audioPlayerTitle}>Audio Recording</Text>
+                      </View>
+                      <Pressable
+                        style={[
+                          styles.playAudioButton,
+                          playingAudioId === record.id && practicePlayerStatus.playing && styles.playAudioButtonPlaying
+                        ]}
+                        onPress={() => handlePlayPracticeAudio(record.id, record.audioUrl)}
+                      >
+                        <IconSymbol
+                          name={playingAudioId === record.id && practicePlayerStatus.playing ? "pause.circle.fill" : "play.circle.fill"}
+                          size={24}
+                          color="#fff"
+                        />
+                        <Text style={styles.playAudioText}>
+                          {playingAudioId === record.id && practicePlayerStatus.playing ? 'Pause' : 'Play Recording'}
+                        </Text>
+                      </Pressable>
+                      {playingAudioId === record.id && practicePlayerStatus.isLoaded && (
+                        <View style={styles.audioProgressContainer}>
+                          <View style={styles.audioProgressBar}>
+                            <View
+                              style={[
+                                styles.audioProgressFill,
+                                {
+                                  width: `${(practicePlayerStatus.currentTime / practicePlayerStatus.duration) * 100}%`
+                                }
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.audioTimeText}>
+                            {formatTime(practicePlayerStatus.currentTime)} / {formatTime(practicePlayerStatus.duration)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Feedback Details */}
+                  {record.feedback && (
+                    <>
                   {/* Fluency */}
                   <View style={styles.feedbackItem}>
                     <View style={styles.feedbackHeader}>
@@ -965,10 +1277,13 @@ export default function SpeakingPracticeScreen() {
                     <Text style={styles.overallFeedbackTitle}>Overall Feedback</Text>
                     <Text style={styles.overallFeedbackText}>{record.feedback.overall}</Text>
                   </View>
+                  </>
+                  )}
                 </View>
               )}
             </View>
-          ))}
+          ))
+          )}
         </View>
       </ScrollView>
     </View>
@@ -1334,6 +1649,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+  sendButtonDisabled: {
+    backgroundColor: '#A5D6A7',
+    opacity: 0.7,
+  },
   sendButtonText: {
     fontSize: 17,
     fontWeight: 'bold',
@@ -1404,11 +1723,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 4,
   },
+  ratingBadgeGreen: {
+    backgroundColor: '#10B981',
+  },
   ratingBadgeBlue: {
     backgroundColor: '#3BB9F0',
   },
   ratingBadgeYellow: {
     backgroundColor: '#FFB800',
+  },
+  ratingBadgeRed: {
+    backgroundColor: '#EF4444',
   },
   ratingText: {
     fontSize: 14,
@@ -1536,5 +1861,111 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  emptyStateContainer: {
+    padding: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+  },
+  answerTextSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3BB9F0',
+  },
+  answerTextHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  answerTextTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  answerTextContent: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  audioPlayerSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3BB9F0',
+  },
+  audioPlayerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  audioPlayerTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  playAudioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#3BB9F0',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  playAudioText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  playAudioButtonPlaying: {
+    backgroundColor: '#F59E0B',
+  },
+  audioProgressContainer: {
+    marginTop: 12,
+    gap: 6,
+  },
+  audioProgressBar: {
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  audioProgressFill: {
+    height: '100%',
+    backgroundColor: '#3BB9F0',
+    borderRadius: 2,
+  },
+  audioTimeText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
   },
 });

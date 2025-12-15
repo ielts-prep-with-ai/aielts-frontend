@@ -1,99 +1,22 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/auth.context';
 import { useTheme } from '@/contexts/theme.context';
-import { UserProfile, UsersService } from '@/services';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
   const { isDarkMode, toggleTheme, colors } = useTheme();
   const router = useRouter();
-
-  // User profile state
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Settings states
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Fetch user profile on mount
-  useEffect(() => {
-    fetchUserProfile();
-    fetchUserAvatar();
-  }, []);
-
-  const fetchUserProfile = async () => {
-    try {
-      const profile = await UsersService.getProfile();
-      setUserProfile(profile);
-
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('[PROFILE] ✅ Profile fetched successfully');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('[PROFILE] Profile:', JSON.stringify(profile, null, 2));
-      console.log('═══════════════════════════════════════════════════════════');
-    } catch (error) {
-      console.error('═══════════════════════════════════════════════════════════');
-      console.error('[PROFILE] ❌ Failed to fetch profile');
-      console.error('═══════════════════════════════════════════════════════════');
-      console.error('[PROFILE] Error:', error);
-      console.error('═══════════════════════════════════════════════════════════');
-
-      Alert.alert(
-        'Error',
-        'Failed to load profile. Please try again.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchUserAvatar = async () => {
-    try {
-      console.log('[PROFILE] Fetching user avatar...');
-      const avatarResponse = await UsersService.getAvatar();
-      setAvatarUrl(avatarResponse.avatar_url);
-      console.log('[PROFILE] ✅ Avatar fetched:', avatarResponse.avatar_url);
-    } catch (error) {
-      console.error('[PROFILE] Failed to fetch avatar:', error);
-      // Don't show alert for avatar failures, just use fallback
-    }
-  };
-
-  // Pull-to-refresh handler
-  const onRefresh = async () => {
-    setIsRefreshing(true);
-    
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('[PROFILE] 🔄 Refreshing profile data...');
-    console.log('═══════════════════════════════════════════════════════════');
-
-    try {
-      // Fetch both profile and avatar in parallel
-      await Promise.all([
-        fetchUserProfile(),
-        fetchUserAvatar(),
-      ]);
-
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('[PROFILE] ✅ Refresh completed successfully');
-      console.log('═══════════════════════════════════════════════════════════');
-    } catch (error) {
-      console.error('═══════════════════════════════════════════════════════════');
-      console.error('[PROFILE] ❌ Refresh failed');
-      console.error('═══════════════════════════════════════════════════════════');
-      console.error('[PROFILE] Error:', error);
-      console.error('═══════════════════════════════════════════════════════════');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  // Use user data from auth context (from OAuth response)
+  const displayName = user?.username || user?.email || 'User';
+  const avatarUrl = user?.picture;
 
   const handleLogout = () => {
     Alert.alert(
@@ -159,25 +82,17 @@ export default function ProfileScreen() {
   };
 
   const confirmDeleteAccount = async () => {
+    // Note: Backend doesn't currently provide a delete account endpoint
+    // This will just logout the user for now
     try {
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('[PROFILE] ⚠️  Deleting user account...');
-      console.log('═══════════════════════════════════════════════════════════');
-
-      const result = await UsersService.deleteAccount();
-
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('[PROFILE] ✅ ACCOUNT DELETED SUCCESSFULLY');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('[PROFILE] Result:', result);
-      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[PROFILE] Account deletion requested (backend endpoint not available)');
 
       // Logout and clear local data
       await logout();
 
       Alert.alert(
-        'Account Deleted',
-        'Your account has been permanently deleted.',
+        'Account Deletion',
+        'Account deletion feature is not yet available. You have been logged out.',
         [
           {
             text: 'OK',
@@ -186,24 +101,16 @@ export default function ProfileScreen() {
         ]
       );
     } catch (error) {
-      console.error('═══════════════════════════════════════════════════════════');
-      console.error('[PROFILE] ❌ FAILED TO DELETE ACCOUNT');
-      console.error('═══════════════════════════════════════════════════════════');
-      console.error('[PROFILE] Error:', error);
-      if (error instanceof Error) {
-        console.error('[PROFILE] Error message:', error.message);
-      }
-      console.error('═══════════════════════════════════════════════════════════');
-
+      console.error('[PROFILE] Failed to logout:', error);
       Alert.alert(
-        'Delete Failed',
-        error instanceof Error ? error.message : 'Failed to delete account. Please try again.'
+        'Error',
+        error instanceof Error ? error.message : 'Failed to logout. Please try again.'
       );
     }
   };
 
-  // Show loading state
-  if (isLoading) {
+  // Show loading state while auth is checking
+  if (authLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -212,17 +119,14 @@ export default function ProfileScreen() {
     );
   }
 
-  // Use avatar URL priority: API avatar > profile picture > user picture > fallback
-  const displayAvatarUrl = avatarUrl || userProfile?.picture || user?.picture;
-
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: colors.background }]} 
       contentContainerStyle={styles.contentContainer}
       refreshControl={
         <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={onRefresh}
+          refreshing={false}
+          onRefresh={() => {}}
           tintColor={colors.primary}
           colors={[colors.primary]}
           title="Pull to refresh"
@@ -238,9 +142,9 @@ export default function ProfileScreen() {
       {/* Profile Info Section */}
       <View style={[styles.profileSection, { backgroundColor: colors.cardBackground }]}>
         <View style={styles.avatarContainer}>
-          {displayAvatarUrl ? (
+          {avatarUrl ? (
             <Image
-              source={{ uri: displayAvatarUrl }}
+              source={{ uri: avatarUrl }}
               style={styles.avatar}
               resizeMode="cover"
               onError={() => console.log('Error loading profile image')}
@@ -252,25 +156,11 @@ export default function ProfileScreen() {
           )}
         </View>
         <Text style={[styles.name, { color: colors.text }]}>
-          {userProfile?.user_name || user?.username || 'User'}
+          {displayName}
         </Text>
         <Text style={[styles.email, { color: colors.textSecondary }]}>
-          {userProfile?.email || user?.email || 'email@example.com'}
+          {user?.email || 'email@example.com'}
         </Text>
-
-        {/* Display phone if available */}
-        {userProfile?.phone && (
-          <Text style={[styles.phone, { color: colors.textSecondary }]}>
-            {userProfile.phone}
-          </Text>
-        )}
-
-        {/* Display bio if available */}
-        {userProfile?.bio && (
-          <Text style={[styles.bio, { color: colors.text }]}>
-            {userProfile.bio}
-          </Text>
-        )}
 
         <Pressable style={styles.editButton} onPress={handleEditProfile}>
           <IconSymbol name="pencil" size={16} color={colors.primary} />
@@ -289,29 +179,10 @@ export default function ProfileScreen() {
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Day Streak</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.statNumber, { color: colors.primary }]}>
-            {userProfile?.target_band || '7.5'}
-          </Text>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>7.5</Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Target Band</Text>
         </View>
       </View>
-
-      {/* Test Date if available */}
-      {userProfile?.test_date && (
-        <View style={[styles.testDateCard, { backgroundColor: colors.cardBackground }]}>
-          <IconSymbol name="calendar" size={24} color={colors.primary} />
-          <View style={styles.testDateInfo}>
-            <Text style={[styles.testDateLabel, { color: colors.textSecondary }]}>Test Date</Text>
-            <Text style={[styles.testDateValue, { color: colors.text }]}>
-              {new Date(userProfile.test_date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </Text>
-          </View>
-        </View>
-      )}
 
       {/* Account Settings Section */}
       <View style={[styles.section, { backgroundColor: colors.cardBackground }]}>
