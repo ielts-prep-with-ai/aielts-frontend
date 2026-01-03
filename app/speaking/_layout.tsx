@@ -6,6 +6,7 @@ export default function SpeakingLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="[topic]" options={{ headerShown: false }} />
       <Stack.Screen name="practice/[questionId]" options={{ headerShown: false }} />
+      <Stack.Screen name="feedback/[answerId]" options={{ headerShown: false }} />
     </Stack>
   );
 }

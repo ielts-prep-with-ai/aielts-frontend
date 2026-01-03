@@ -205,8 +205,15 @@ export default function MicrophoneTestScreen() {
 
     try {
       console.log('[MicTest] Starting test:', config);
-      const response = await ApiService.post<StartTestResponse>('/start_test', config);
-      console.log('[MicTest] Test started:', response);
+      const response = await ApiService.post<any>('/start_test', config);
+      console.log('[MicTest] Test started - Full response:', response);
+
+      // Handle both part1/part2/part3 and part_1/part_2/part_3 formats
+      const part1 = response.part1 || response.part_1 || [];
+      const part2 = response.part2 || response.part_2 || [];
+      const part3 = response.part3 || response.part_3 || [];
+
+      console.log('[MicTest] Parsed parts:', { part1, part2, part3 });
 
       router.push({
         pathname: '/mock-test/test-question',
@@ -214,9 +221,9 @@ export default function MicrophoneTestScreen() {
           testId,
           mode: config.mode,
           testSessionId: response.test_session_id,
-          part1: JSON.stringify(response.part1),
-          part2: JSON.stringify(response.part2),
-          part3: JSON.stringify(response.part3),
+          part1: JSON.stringify(part1),
+          part2: JSON.stringify(part2),
+          part3: JSON.stringify(part3),
           startTime: response.start_time,
           endTime: response.end_time,
           timeLimit: response.time_limit,

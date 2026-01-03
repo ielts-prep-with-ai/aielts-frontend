@@ -1,25 +1,84 @@
-import { StyleSheet, ScrollView, View, Text, Pressable } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
+import { QuestionsService } from '@/services/questions.service';
+import { QuestionDetail } from '@/services/types';
+
+interface ParsedTopic {
+  title: string;
+  points: string[];
+}
 
 export default function Part2TopicScreen() {
   const router = useRouter();
-  const { testId, mode, parts, timeLimit } = useLocalSearchParams();
+  const { testId, mode, parts, timeLimit, questionId } = useLocalSearchParams<{
+    testId: string;
+    mode: string;
+    parts: string;
+    timeLimit: string;
+    questionId: string;
+  }>();
 
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingTime, setThinkingTime] = useState(60);
+  const [topic, setTopic] = useState<ParsedTopic | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mock topic data
-  const topic = {
-    title: 'Describe a competition you want to take part in',
-    points: [
-      'What the competition is',
-      'How you knew it',
-      'What you need to prepare for it',
-      'And explain why you want to attend it',
-    ],
+  // Fetch and parse Part 2 question from API
+  useEffect(() => {
+    const fetchQuestion = async () => {
+      if (!questionId) {
+        setError('No question ID provided');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const question = await QuestionsService.getQuestion(Number(questionId));
+
+        // Parse the question text to extract topic and bullet points
+        const parsedTopic = parseQuestionText(question.question_text);
+        setTopic(parsedTopic);
+        setError(null);
+      } catch (err: any) {
+        console.error('[Part2Topic] Error fetching question:', err);
+        setError(err?.message || 'Failed to load question');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestion();
+  }, [questionId]);
+
+  // Parse Part 2 question text into title and bullet points
+  const parseQuestionText = (text: string): ParsedTopic => {
+    // Expected format: "Describe... You should say: point1, point2, point3"
+    // Or with newlines/bullets
+    const parts = text.split(/you should say:|You should say:/i);
+
+    if (parts.length < 2) {
+      // Fallback if format doesn't match
+      return {
+        title: text,
+        points: []
+      };
+    }
+
+    const title = parts[0].trim();
+    const pointsText = parts[1].trim();
+
+    // Split by common separators (bullets, newlines, numbered lists, commas)
+    const points = pointsText
+      .split(/[•\n\d+\.\-,]/)
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    return { title, points };
   };
 
   useEffect(() => {
@@ -74,6 +133,39 @@ export default function Part2TopicScreen() {
     navigateToQuestion();
   };
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>AI Mock Test</Text>
+        </View>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#3BB9F0" />
+          <Text style={styles.loadingText}>Loading Part 2 topic...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error || !topic) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol name="chevron.left" size={28} color="#000" />
+          </Pressable>
+          <Text style={styles.headerTitle}>AI Mock Test</Text>
+        </View>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error || 'Failed to load topic'}</Text>
+          <Pressable style={styles.retryButton} onPress={() => router.back()}>
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -99,17 +191,21 @@ export default function Part2TopicScreen() {
         {/* Question Section */}
         <View style={styles.questionSection}>
           <Text style={styles.questionTitle}>{topic.title}</Text>
-          <Text style={styles.questionSubtitle}>You should say:</Text>
+          {topic.points.length > 0 && (
+            <>
+              <Text style={styles.questionSubtitle}>You should say:</Text>
 
-          {/* Bullet Points */}
-          <View style={styles.bulletPointsContainer}>
-            {topic.points.map((point, index) => (
-              <View key={index} style={styles.bulletRow}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.bulletText}>{point}</Text>
+              {/* Bullet Points */}
+              <View style={styles.bulletPointsContainer}>
+                {topic.points.map((point, index) => (
+                  <View key={index} style={styles.bulletRow}>
+                    <Text style={styles.bullet}>•</Text>
+                    <Text style={styles.bulletText}>{point}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          )}
         </View>
 
         {/* Recording Section */}
@@ -189,6 +285,34 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF6B6B',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#3BB9F0',
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   content: {
     flex: 1,

@@ -98,17 +98,17 @@ export interface StartTestRequest {
   mode: TestMode;
   exam_set_id: number;
   skill: string;
-  part_1: boolean;
-  part_2: boolean;
-  part_3: boolean;
+  part1: boolean;
+  part2: boolean;
+  part3: boolean;
   time_limit?: TimeLimit;
 }
 
 export interface StartTestResponse {
   test_session_id: string;
-  part_1: number[];
-  part_2: number[];
-  part_3: number[];
+  part1: number[];
+  part2: number[];
+  part3: number[];
   start_time: string;
   end_time: string;
   time_limit: string;
@@ -116,27 +116,27 @@ export interface StartTestResponse {
 
 export interface SimulationUploadURLsRequest {
   test_session_id: string;
-  questions: {
-    part_1?: number[];
-    part_2?: number[];
-    part_3?: number[];
+  answers: {
+    part1?: Record<string, string>;
+    part2?: Record<string, string>;
+    part3?: Record<string, string>;
   };
 }
 
 export interface SimulationUploadURLsResponse {
   upload_urls: {
-    part_1?: Record<string, string>;
-    part_2?: Record<string, string>;
-    part_3?: Record<string, string>;
+    part1?: Record<string, string>;
+    part2?: Record<string, string>;
+    part3?: Record<string, string>;
   };
 }
 
 export interface ConfirmSimulationRequest {
   test_session_id: string;
   answers: {
-    part_1?: Record<string, string>;
-    part_2?: Record<string, string>;
-    part_3?: Record<string, string>;
+    part1?: Record<string, string>;
+    part2?: Record<string, string>;
+    part3?: Record<string, string>;
   };
 }
 

@@ -128,7 +128,7 @@ export default function PracticeQuestionScreen() {
   if (error || !question) {
     return (
       <View style={styles.container}>
-        <Header title="Practice" />
+        <Header title="Practice" showHome={true} />
         <ErrorView message={error || 'Question not found'} onRetry={loadQuestion} />
       </View>
     );
@@ -141,7 +141,7 @@ export default function PracticeQuestionScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <Header title="Practice Speaking" subtitle={`Part ${question.part}`} />
+        <Header title="Practice Speaking" subtitle={`Part ${question.part}`} showHome={true} />
 
         {/* Question Card */}
         <Card style={styles.questionCard}>

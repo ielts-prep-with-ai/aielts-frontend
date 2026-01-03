@@ -14,22 +14,75 @@ type IconSymbolName = keyof typeof MAPPING;
  * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
  */
 const MAPPING = {
+  // Navigation
   'house.fill': 'home',
-  'paperplane.fill': 'send',
-  'chevron.left.forwardslash.chevron.right': 'code',
+  'chevron.left': 'chevron-left',
   'chevron.right': 'chevron-right',
+  'chevron.up': 'expand-less',
+  'chevron.down': 'expand-more',
+  'chevron.left.forwardslash.chevron.right': 'code',
+  'arrow.right.circle.fill': 'arrow-circle-right',
+
+  // User & Profile
   'person.circle.fill': 'account-circle',
   'person.fill': 'person',
-  'headphones': 'headphones',
-  'book.fill': 'book',
-  'pencil.and.list.clipboard': 'edit-note',
+  'camera.fill': 'camera-alt',
+  'pencil': 'edit',
+  'lock.fill': 'lock',
+  'hand.raised.fill': 'pan-tool',
+  'rectangle.portrait.and.arrow.right': 'logout',
+
+  // Communication
+  'paperplane.fill': 'send',
   'bubble.left.and.text.bubble.right.fill': 'chat-bubble',
-  'cpu': 'memory',
-  'book.pages.fill': 'menu-book',
+  'text.bubble': 'chat-bubble-outline',
+  'text.bubble.fill': 'chat-bubble',
+
+  // Media & Audio
+  'headphones': 'headphones',
   'mic.fill': 'mic',
-  'doc.text.fill': 'description',
+  'speaker.wave.2.fill': 'volume-up',
+  'play.fill': 'play-arrow',
+  'pause.fill': 'pause',
+  'play.circle.fill': 'play-circle-filled',
+  'pause.circle.fill': 'pause-circle-filled',
+  'stop.circle.fill': 'stop-circle',
+  'waveform': 'graphic-eq',
+
+  // Education & Learning
+  'book.fill': 'book',
+  'book.pages.fill': 'menu-book',
   'graduationcap.fill': 'school',
+  'pencil.and.list.clipboard': 'edit-note',
+  'doc.text.fill': 'description',
+
+  // System & Utility
+  'cpu': 'memory',
   'cpu.fill': 'memory',
+  'brain': 'psychology',
+  'magnifyingglass': 'search',
+  'calendar': 'event',
+  'clock': 'access-time',
+  'trash': 'delete-outline',
+  'trash.fill': 'delete',
+  'bookmark': 'bookmark-border',
+
+  // Notifications & Settings
+  'bell.fill': 'notifications',
+  'moon.fill': 'dark-mode',
+  'star.fill': 'star',
+
+  // Status & Alerts
+  'checkmark': 'check',
+  'checkmark.circle.fill': 'check-circle',
+  'exclamationmark.triangle': 'warning',
+  'exclamationmark.circle': 'error-outline',
+  'info.circle': 'info-outline',
+  'info.circle.fill': 'info',
+  'questionmark.circle.fill': 'help',
+  'xmark.circle.fill': 'cancel',
+
+  // Social Login
   'g.circle.fill': 'circle',
   'f.circle.fill': 'circle',
   'apple.logo': 'apple',

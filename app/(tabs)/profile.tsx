@@ -1,8 +1,9 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/auth.context';
 import { useTheme } from '@/contexts/theme.context';
+import { UserProfile, UsersService } from '@/services/users.service';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 export default function ProfileScreen() {
@@ -10,13 +11,54 @@ export default function ProfileScreen() {
   const { isDarkMode, toggleTheme, colors } = useTheme();
   const router = useRouter();
 
+  // Profile data state
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
   // Settings states
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Use user data from auth context (from OAuth response)
-  const displayName = user?.username || user?.email || 'User';
-  const avatarUrl = user?.picture;
+  // Fetch user profile from API
+  const fetchProfile = async () => {
+    try {
+      setIsLoadingProfile(true);
+      setProfileError(null);
+      const profileData = await UsersService.getProfile();
+      setProfile(profileData);
+    } catch (error) {
+      // Check if it's a "user not found" error (new user without profile)
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
+      const isUserNotFound = errorMessage.includes('user information not found') ||
+                             errorMessage.includes('not found') ||
+                             errorMessage.includes('404');
+
+      if (isUserNotFound) {
+        // This is expected for new users - don't log as error, just use fallback data
+        console.log('[PROFILE] ℹ️  New user - profile not yet created. Using auth data as fallback.');
+        setProfileError(null); // Clear error since this is expected
+      } else {
+        // Unexpected error - log it
+        console.error('[PROFILE] Failed to fetch profile:', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to load profile';
+        setProfileError(errMsg);
+      }
+      // In both cases, fall back to auth user data
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  // Fetch profile on mount
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  // Use profile data from API if available, otherwise fall back to OAuth data
+  const displayName = profile?.user_name || (user as any)?.name || user?.username || user?.email?.split('@')[0] || 'User';
+  const email = profile?.email || user?.email || 'email@example.com';
+  const avatarUrl = profile?.avatar_url || user?.picture;
 
   const handleLogout = () => {
     Alert.alert(
@@ -43,9 +85,9 @@ export default function ProfileScreen() {
     router.push('/edit-profile');
   };
 
-  const handleChangePassword = () => {
-    Alert.alert('Change Password', 'Password change feature coming soon!');
-  };
+  // const handleChangePassword = () => {
+  //   Alert.alert('Change Password', 'Password change feature coming soon!');
+  // };
 
   const handlePrivacySettings = () => {
     Alert.alert('Privacy Settings', 'Privacy settings coming soon!');
@@ -109,8 +151,8 @@ export default function ProfileScreen() {
     }
   };
 
-  // Show loading state while auth is checking
-  if (authLoading) {
+  // Show loading state while auth is checking or profile is loading
+  if (authLoading || isLoadingProfile) {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -125,8 +167,8 @@ export default function ProfileScreen() {
       contentContainerStyle={styles.contentContainer}
       refreshControl={
         <RefreshControl
-          refreshing={false}
-          onRefresh={() => {}}
+          refreshing={isLoadingProfile}
+          onRefresh={fetchProfile}
           tintColor={colors.primary}
           colors={[colors.primary]}
           title="Pull to refresh"
@@ -158,9 +200,6 @@ export default function ProfileScreen() {
         <Text style={[styles.name, { color: colors.text }]}>
           {displayName}
         </Text>
-        <Text style={[styles.email, { color: colors.textSecondary }]}>
-          {user?.email || 'email@example.com'}
-        </Text>
 
         <Pressable style={styles.editButton} onPress={handleEditProfile}>
           <IconSymbol name="pencil" size={16} color={colors.primary} />
@@ -171,16 +210,16 @@ export default function ProfileScreen() {
       {/* Stats Section */}
       <View style={styles.statsSection}>
         <View style={[styles.statCard, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.statNumber, { color: colors.primary }]}>142</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Exercises</Text>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>
+            {profile?.current_level || '-'}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Current Level</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.statNumber, { color: colors.primary }]}>15</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Day Streak</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.statNumber, { color: colors.primary }]}>7.5</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Target Band</Text>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>
+            {profile?.target_score || '-'}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Target Score</Text>
         </View>
       </View>
 
@@ -196,13 +235,13 @@ export default function ProfileScreen() {
           <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
         </Pressable>
 
-        <Pressable style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={handleChangePassword}>
+        {/* <Pressable style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={handleChangePassword}>
           <View style={styles.menuItemLeft}>
             <IconSymbol name="lock.fill" size={24} color={colors.primary} />
             <Text style={[styles.menuItemText, { color: colors.text }]}>Change Password</Text>
           </View>
           <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-        </Pressable>
+        </Pressable> */}
 
         <Pressable style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={handlePrivacySettings}>
           <View style={styles.menuItemLeft}>

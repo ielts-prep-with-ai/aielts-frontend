@@ -3,13 +3,15 @@ import { AuthService } from './auth.service';
 const API_BASE_URL = 'https://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
 
 export interface UserProfile {
-  id: string;
-  email: string;
+  user_id: string;
   user_name: string;
-  picture?: string;
+  avatar_url?: string;
+  target_score?: number;
+  current_level?: number;
+  // Optional fields that may not be in the API yet
+  email?: string;
   phone?: string;
   bio?: string;
-  target_band?: string;
   test_date?: string;
   created_at?: string;
   updated_at?: string;
@@ -17,12 +19,13 @@ export interface UserProfile {
 
 export interface UpdateUserProfile {
   user_name?: string;
+  target_score?: number;
+  current_level?: number;
+  // Optional fields for future use
   email?: string;
   phone?: string;
   bio?: string;
-  target_band?: string;
   test_date?: string;
-  picture?: string;
 }
 
 export interface AvatarResponse {
@@ -128,7 +131,7 @@ class UsersServiceClass {
 
       // Create FormData
       const formData = new FormData();
-      formData.append('avatar', avatarFile, avatarFile instanceof File ? avatarFile.name : 'avatar.jpg');
+      formData.append('AvatarFile', avatarFile, avatarFile instanceof File ? avatarFile.name : 'avatar.jpg');
 
       console.log('[UsersService] Making POST request with multipart/form-data...');
 
@@ -204,6 +207,16 @@ class UsersServiceClass {
 
       if (!response.ok) {
         const errorText = await response.text();
+
+        // Handle 404 specifically - user profile doesn't exist yet (expected for new users)
+        if (response.status === 404) {
+          console.log('═══════════════════════════════════════════════════════════');
+          console.log('[UsersService] ℹ️  Profile not found (404) - new user');
+          console.log('═══════════════════════════════════════════════════════════');
+          throw new Error('user information not found');
+        }
+
+        // For other errors, log the details
         console.error('═══════════════════════════════════════════════════════════');
         console.error('[UsersService] ❌ FAILED TO FETCH PROFILE');
         console.error('═══════════════════════════════════════════════════════════');
@@ -265,7 +278,8 @@ class UsersServiceClass {
 
       console.log('[UsersService] Token retrieved');
       console.log('[UsersService] Token length:', token.length);
-      console.log('[UsersService] Making PUT request...');
+      console.log('[UsersService] Making PUT request to:', `${API_BASE_URL}/users/me`);
+      console.log('[UsersService] Request body:', JSON.stringify(data));
 
       const response = await fetch(`${API_BASE_URL}/users/me`, {
         method: 'PUT',

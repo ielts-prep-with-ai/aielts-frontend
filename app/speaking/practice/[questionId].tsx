@@ -9,6 +9,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Speech from 'expo-speech';
+import * as Haptics from 'expo-haptics';
 
 /**
  * Custom recording preset optimized for backend OGG format requirement
@@ -109,6 +110,12 @@ export default function SpeakingPracticeScreen() {
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+
+  // Success animation value
+  const successScaleAnim = useRef(new Animated.Value(0)).current;
+  const successOpacityAnim = useRef(new Animated.Value(0)).current;
 
   // User answers state
   const [userAnswers, setUserAnswers] = useState<PracticeRecord[]>([]);
@@ -443,6 +450,8 @@ export default function SpeakingPracticeScreen() {
         await audioRecorder.prepareToRecordAsync();
         await audioRecorder.record();
         setIsRecordingSession(true);
+        // Haptic feedback for recording start
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         console.log('[Recording] Started recording');
       } catch (error) {
         console.error('[Recording] Failed to start recording:', error);
@@ -471,6 +480,8 @@ export default function SpeakingPracticeScreen() {
 
         setRecordingUri(uri);
         setIsRecordingSession(false);
+        // Haptic feedback for recording stop
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
         // Reset audio mode after recording - keep playsInSilentMode for playback
         await setAudioModeAsync({
@@ -503,11 +514,15 @@ export default function SpeakingPracticeScreen() {
         console.log('[Recording] Resuming recording...');
         await audioRecorder.record();
         setIsPausedManual(false);
+        // Haptic feedback for resume
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         console.log('[Recording] Resumed successfully');
       } else {
         console.log('[Recording] Pausing recording...');
         await audioRecorder.pause();
         setIsPausedManual(true);
+        // Haptic feedback for pause
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         console.log('[Recording] Paused successfully');
       }
     } catch (error) {
@@ -600,16 +615,23 @@ export default function SpeakingPracticeScreen() {
     try {
       if (!recordingUri) {
         Alert.alert('No Recording', 'Please record your answer first.');
+        // Haptic feedback for error
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
 
       if (!questionId) {
         Alert.alert('Error', 'Question ID is missing.');
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
 
+      // Haptic feedback for button press
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       // Set submitting state to prevent multiple submissions
       setIsSubmitting(true);
+      setUploadProgress(0);
 
       // Stop playback before submitting - only if audio source is loaded
       if (audioSource && playerStatus.playing) {
@@ -683,15 +705,42 @@ export default function SpeakingPracticeScreen() {
       console.log('[AUDIO UPLOAD] FormData prepared with audio_file field');
       console.log('[AUDIO UPLOAD] Sending request to backend...');
 
-      // Send to backend API
+      // Send to backend API with upload progress tracking
       const API_BASE_URL = 'https://aielts-deployment-image-61097992433.asia-southeast1.run.app/api/v1';
-      const response = await fetch(`${API_BASE_URL}/questions/${questionId}/answers`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type - let the browser/React Native set it with boundary
-        },
-        body: formData,
+
+      const response = await new Promise<{ ok: boolean; status: number; statusText: string; json: () => Promise<any>; text: () => Promise<string> }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = (event.loaded / event.total) * 100;
+            setUploadProgress(percentComplete);
+            console.log(`[AUDIO UPLOAD] Progress: ${percentComplete.toFixed(1)}%`);
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          resolve({
+            ok: xhr.status >= 200 && xhr.status < 300,
+            status: xhr.status,
+            statusText: xhr.statusText,
+            json: async () => JSON.parse(xhr.responseText),
+            text: async () => xhr.responseText,
+          });
+        });
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error occurred'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload aborted'));
+        });
+
+        xhr.open('POST', `${API_BASE_URL}/questions/${questionId}/answers`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(formData);
       });
 
       console.log('[AUDIO UPLOAD] Response status:', response.status);
@@ -714,8 +763,23 @@ export default function SpeakingPracticeScreen() {
           if (errorText) errorMessage = errorText;
         }
 
-        Alert.alert('Upload Failed', errorMessage);
-        setIsSubmitting(false); // Reset submitting state on error
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          'Upload Failed',
+          errorMessage,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => {
+              setIsSubmitting(false);
+              setUploadProgress(0);
+            }},
+            { text: 'Retry', onPress: () => {
+              setIsSubmitting(false);
+              setUploadProgress(0);
+              // Wait a moment before retrying
+              setTimeout(() => handleSave(), 500);
+            }},
+          ]
+        );
         return;
       }
 
@@ -742,16 +806,41 @@ export default function SpeakingPracticeScreen() {
       console.log('[AUDIO UPLOAD] Latest answer ID:', latestAnswer.id);
       console.log('═══════════════════════════════════════════════════════════');
 
-      // Redirect to feedback page
-      router.push({
-        pathname: `/speaking/feedback/${latestAnswer.id}`,
-        params: {
-          questionId: questionId.toString(),
-        }
-      });
+      // Success haptic feedback
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Reset states after navigation
-      setIsSubmitting(false);
+      // Show success animation
+      setShowSuccessAnimation(true);
+      Animated.parallel([
+        Animated.spring(successScaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(successOpacityAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Wait for animation and navigate
+      setTimeout(() => {
+        router.push({
+          pathname: `/speaking/feedback/${latestAnswer.id}`,
+          params: {
+            questionId: questionId.toString(),
+          }
+        });
+
+        // Reset states after navigation
+        setIsSubmitting(false);
+        setShowSuccessAnimation(false);
+        setUploadProgress(0);
+        successScaleAnim.setValue(0);
+        successOpacityAnim.setValue(0);
+      }, 1500);
 
     } catch (error) {
       console.error('═══════════════════════════════════════════════════════════');
@@ -764,12 +853,23 @@ export default function SpeakingPracticeScreen() {
       }
       console.error('═══════════════════════════════════════════════════════════');
 
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to submit recording. Please try again.'
+        'Upload Error',
+        error instanceof Error ? error.message : 'Failed to submit recording. Please try again.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => {
+            setIsSubmitting(false);
+            setUploadProgress(0);
+          }},
+          { text: 'Retry', onPress: () => {
+            setIsSubmitting(false);
+            setUploadProgress(0);
+            // Wait a moment before retrying
+            setTimeout(() => handleSave(), 500);
+          }},
+        ]
       );
-
-      setIsSubmitting(false); // Reset submitting state on error
     }
   };
 
@@ -818,13 +918,18 @@ export default function SpeakingPracticeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={28} color="#000" />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{topicTitle}</Text>
-            <Text style={styles.headerSubtitle}>Practice questions</Text>
+          <View style={styles.headerLeft}>
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+              <IconSymbol name="chevron.left" size={28} color="#000" />
+            </Pressable>
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>{topicTitle}</Text>
+              <Text style={styles.headerSubtitle}>Practice questions</Text>
+            </View>
           </View>
+          <Pressable style={styles.homeButton} onPress={() => router.push('/(tabs)')}>
+            <IconSymbol name="house.fill" size={24} color="#3BB9F0" />
+          </Pressable>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3BB9F0" />
@@ -839,13 +944,18 @@ export default function SpeakingPracticeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={28} color="#000" />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{topicTitle}</Text>
-            <Text style={styles.headerSubtitle}>Practice questions</Text>
+          <View style={styles.headerLeft}>
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+              <IconSymbol name="chevron.left" size={28} color="#000" />
+            </Pressable>
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>{topicTitle}</Text>
+              <Text style={styles.headerSubtitle}>Practice questions</Text>
+            </View>
           </View>
+          <Pressable style={styles.homeButton} onPress={() => router.push('/(tabs)')}>
+            <IconSymbol name="house.fill" size={24} color="#3BB9F0" />
+          </Pressable>
         </View>
         <View style={styles.loadingContainer}>
           <IconSymbol name="exclamationmark.triangle" size={48} color="#FF6B6B" />
@@ -863,16 +973,23 @@ export default function SpeakingPracticeScreen() {
       <View style={styles.container}>
         {/* Header Section */}
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => setShowRecording(false)}>
-            <IconSymbol name="chevron.left" size={28} color="#000" />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{topicTitle}</Text>
-            <Text style={styles.headerSubtitle}>Practice questions</Text>
+          <View style={styles.headerLeft}>
+            <Pressable style={styles.backButton} onPress={() => setShowRecording(false)}>
+              <IconSymbol name="chevron.left" size={28} color="#000" />
+            </Pressable>
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>{topicTitle}</Text>
+              <Text style={styles.headerSubtitle}>Practice questions</Text>
+            </View>
           </View>
-          <Pressable style={styles.infoButton} onPress={() => setShowInstructions(true)}>
-            <IconSymbol name="info.circle" size={28} color="#3BB9F0" />
-          </Pressable>
+          <View style={styles.headerRight}>
+            <Pressable style={styles.homeButton} onPress={() => router.push('/(tabs)')}>
+              <IconSymbol name="house.fill" size={24} color="#3BB9F0" />
+            </Pressable>
+            <Pressable style={styles.infoButton} onPress={() => setShowInstructions(true)}>
+              <IconSymbol name="info.circle" size={28} color="#3BB9F0" />
+            </Pressable>
+          </View>
         </View>
 
         {/* Instructions Modal */}
@@ -1049,20 +1166,33 @@ export default function SpeakingPracticeScreen() {
                   </Pressable>
                 </View>
 
-                <Pressable
-                  style={[styles.sendButton, isSubmitting && styles.sendButtonDisabled]}
-                  onPress={handleSave}
-                  disabled={isSubmitting}
-                >
-                  <Text style={styles.sendButtonText}>
-                    {isSubmitting ? 'Submitting...' : 'Submit to AI Analysis'}
-                  </Text>
-                  {isSubmitting ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <IconSymbol name="arrow.right.circle.fill" size={24} color="#fff" />
-                  )}
-                </Pressable>
+                <View style={styles.submitContainer}>
+                  <Pressable
+                    style={[styles.sendButton, isSubmitting && styles.sendButtonDisabled]}
+                    onPress={handleSave}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
+                      <View style={styles.progressBarBackground}>
+                        <View style={[styles.progressBarFill, { width: `${uploadProgress}%` }]} />
+                      </View>
+                    )}
+                    <View style={styles.sendButtonContent}>
+                      <Text style={styles.sendButtonText}>
+                        {isSubmitting
+                          ? uploadProgress < 100
+                            ? `Uploading... ${Math.round(uploadProgress)}%`
+                            : 'Processing...'
+                          : 'Submit to AI Analysis'}
+                      </Text>
+                      {isSubmitting ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <IconSymbol name="arrow.right.circle.fill" size={24} color="#fff" />
+                      )}
+                    </View>
+                  </Pressable>
+                </View>
               </View>
             )}
 
@@ -1076,13 +1206,18 @@ export default function SpeakingPracticeScreen() {
     <View style={styles.container}>
       {/* Header Section */}
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={28} color="#000" />
-        </Pressable>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>{topicTitle}</Text>
-          <Text style={styles.headerSubtitle}>Practice questions</Text>
+        <View style={styles.headerLeft}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol name="chevron.left" size={28} color="#000" />
+          </Pressable>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{topicTitle}</Text>
+            <Text style={styles.headerSubtitle}>Practice questions</Text>
+          </View>
         </View>
+        <Pressable style={styles.homeButton} onPress={() => router.push('/(tabs)')}>
+          <IconSymbol name="house.fill" size={24} color="#3BB9F0" />
+        </Pressable>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -1286,6 +1421,29 @@ export default function SpeakingPracticeScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Success Animation Modal */}
+      {showSuccessAnimation && (
+        <Modal transparent visible={showSuccessAnimation} animationType="none">
+          <View style={styles.successOverlay}>
+            <Animated.View
+              style={[
+                styles.successContent,
+                {
+                  opacity: successOpacityAnim,
+                  transform: [{ scale: successScaleAnim }],
+                },
+              ]}
+            >
+              <View style={styles.successCheckmark}>
+                <IconSymbol name="checkmark.circle.fill" size={80} color="#4CAF50" />
+              </View>
+              <Text style={styles.successTitle}>Upload Successful!</Text>
+              <Text style={styles.successSubtitle}>Analyzing your response...</Text>
+            </Animated.View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -1298,10 +1456,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
     backgroundColor: '#fff',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   backButton: {
     marginRight: 12,
@@ -1309,6 +1478,14 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
+  },
+  homeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F6FC',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
@@ -1965,6 +2142,72 @@ const styles = StyleSheet.create({
   },
   audioTimeText: {
     fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+
+  // Submit button with progress
+  submitContainer: {
+    width: '100%',
+  },
+  sendButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    zIndex: 2,
+  },
+  progressBarBackground: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#fff',
+    transition: 'width 0.3s ease',
+  },
+
+  // Success animation overlay
+  successOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 40,
+    alignItems: 'center',
+    minWidth: 280,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  successCheckmark: {
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 16,
     color: '#666',
     textAlign: 'center',
   },

@@ -5,7 +5,7 @@ import { UsersService } from '@/services';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 export default function EditProfileScreen() {
   const { user } = useAuth();
@@ -22,6 +22,7 @@ export default function EditProfileScreen() {
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
   const [targetBand, setTargetBand] = useState('');
+  const [currentLevel, setCurrentLevel] = useState('');
   const [testDate, setTestDate] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<{ uri: string; type: string; name: string } | null>(null);
@@ -41,12 +42,13 @@ export default function EditProfileScreen() {
 
       // Populate form with existing data
       setName(profile.user_name || '');
-      setEmail(profile.email || '');
+      setEmail(profile.email || user?.email || '');
       setPhone(profile.phone || '');
       setBio(profile.bio || '');
-      setTargetBand(profile.target_band || '');
+      setTargetBand(profile.target_score?.toString() || '');
+      setCurrentLevel(profile.current_level?.toString() || '');
       setTestDate(profile.test_date || '');
-      setProfileImage(profile.picture || null);
+      setProfileImage(profile.avatar_url || null);
 
       console.log('═══════════════════════════════════════════════════════════');
       console.log('[EDIT PROFILE] ✅ Profile loaded successfully');
@@ -54,17 +56,39 @@ export default function EditProfileScreen() {
       console.log('[EDIT PROFILE] Profile:', profile);
       console.log('═══════════════════════════════════════════════════════════');
     } catch (error) {
-      console.error('═══════════════════════════════════════════════════════════');
-      console.error('[EDIT PROFILE] ❌ Failed to load profile');
-      console.error('═══════════════════════════════════════════════════════════');
-      console.error('[EDIT PROFILE] Error:', error);
-      console.error('═══════════════════════════════════════════════════════════');
+      // Check if it's a "user not found" error (new user without profile)
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
+      const isUserNotFound = errorMessage.includes('user information not found') ||
+                             errorMessage.includes('not found') ||
+                             errorMessage.includes('404');
 
-      Alert.alert(
-        'Error',
-        'Failed to load profile. Please try again.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      if (isUserNotFound) {
+        // This is expected for new users - don't log as error
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('[EDIT PROFILE] ℹ️  New user - profile not yet created');
+        console.log('[EDIT PROFILE] Initializing with user data from auth context');
+        console.log('═══════════════════════════════════════════════════════════');
+
+        // Initialize with user data from auth context if available
+        if (user) {
+          setName(user.name || '');
+          setEmail(user.email || '');
+          // Other fields remain empty for new profile creation
+        }
+      } else {
+        // Unexpected error - log it and show alert
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('[EDIT PROFILE] ❌ Failed to load profile');
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('[EDIT PROFILE] Error:', error);
+        console.error('═══════════════════════════════════════════════════════════');
+
+        Alert.alert(
+          'Error',
+          'Failed to load profile. Please try again.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -73,18 +97,6 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Error', 'Name is required');
-      return;
-    }
-
-    if (!email.trim()) {
-      Alert.alert('Error', 'Email is required');
-      return;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -123,15 +135,25 @@ export default function EditProfileScreen() {
       // Step 2: Update profile data
       const updateData: any = {
         user_name: name.trim(),
-        email: email.trim(),
       };
 
       // Add optional fields only if they have values
+      if (email.trim()) updateData.email = email.trim();
       if (phone.trim()) updateData.phone = phone.trim();
       if (bio.trim()) updateData.bio = bio.trim();
-      if (targetBand.trim()) updateData.target_band = targetBand.trim();
+      if (targetBand.trim()) {
+        const targetScore = parseInt(targetBand.trim());
+        if (!isNaN(targetScore)) {
+          updateData.target_score = targetScore;
+        }
+      }
+      if (currentLevel.trim()) {
+        const currentLevelNum = parseInt(currentLevel.trim());
+        if (!isNaN(currentLevelNum)) {
+          updateData.current_level = currentLevelNum;
+        }
+      }
       if (testDate.trim()) updateData.test_date = testDate.trim();
-      if (profileImage) updateData.picture = profileImage;
 
       console.log('[EDIT PROFILE] Update data:', updateData);
 
@@ -324,6 +346,7 @@ export default function EditProfileScreen() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Information</Text>
 
         {/* Name Input */}
+        <KeyboardAvoidingView>
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Full Name *</Text>
           <TextInput
@@ -334,9 +357,10 @@ export default function EditProfileScreen() {
             placeholderTextColor={colors.textSecondary}
           />
         </View>
+        </KeyboardAvoidingView>
 
         {/* Email Input */}
-        <View style={styles.inputGroup}>
+        {/* <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Email Address *</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
@@ -347,10 +371,10 @@ export default function EditProfileScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-        </View>
+        </View> */}
 
         {/* Phone Input */}
-        <View style={styles.inputGroup}>
+        {/* <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Phone Number</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
@@ -360,10 +384,10 @@ export default function EditProfileScreen() {
             placeholderTextColor={colors.textSecondary}
             keyboardType="phone-pad"
           />
-        </View>
+        </View> */}
 
         {/* Bio Input */}
-        <View style={styles.inputGroup}>
+        {/* <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Bio</Text>
           <TextInput
             style={[styles.input, styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
@@ -375,7 +399,7 @@ export default function EditProfileScreen() {
             numberOfLines={4}
             textAlignVertical="top"
           />
-        </View>
+        </View> */}
       </View>
 
       {/* IELTS Goals Section */}
@@ -384,18 +408,32 @@ export default function EditProfileScreen() {
 
         {/* Target Band Input */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Target Band Score</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Target IELTS Score</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
             value={targetBand}
             onChangeText={setTargetBand}
-            placeholder="e.g., 7.5"
+            placeholder="e.g., 7 or 8"
             placeholderTextColor={colors.textSecondary}
-            keyboardType="decimal-pad"
+            keyboardType="number-pad"
+          />
+        </View>
+
+        {/* Current Level Input */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>Current IELTS Level</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+            value={currentLevel}
+            onChangeText={setCurrentLevel}
+            placeholder="e.g., 5 or 6"
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="number-pad"
           />
         </View>
 
         {/* Test Date Input */}
+        <KeyboardAvoidingView>
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Test Date</Text>
           <TextInput
@@ -409,6 +447,7 @@ export default function EditProfileScreen() {
             Format: YYYY-MM-DD (e.g., 2024-12-31)
           </Text>
         </View>
+        </KeyboardAvoidingView>
       </View>
 
       {/* Action Buttons */}

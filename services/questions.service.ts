@@ -58,6 +58,25 @@ class QuestionsServiceClass {
       throw error;
     }
   }
+
+  /**
+   * Get multiple questions by IDs in a single batch request
+   * POST /questions/batch
+   */
+  async getBatchQuestions(questionIds: number[]): Promise<QuestionDetail[]> {
+    console.log(`[QuestionsService] Fetching ${questionIds.length} questions in batch...`);
+
+    try {
+      const questions = await ApiService.post<QuestionDetail[]>('/questions/batch', {
+        question_ids: questionIds
+      });
+      console.log(`[QuestionsService] Successfully fetched ${questions.length} questions in batch`);
+      return questions;
+    } catch (error) {
+      console.error('[QuestionsService] Failed to fetch batch questions:', error);
+      throw error;
+    }
+  }
 }
 
 export const QuestionsService = new QuestionsServiceClass();

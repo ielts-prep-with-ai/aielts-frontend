@@ -1,112 +1,256 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { useRouter } from 'expo-router';
+import { ScrollView, StyleSheet, View, Text, Pressable } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
-export default function TabTwoScreen() {
+interface PracticeCardProps {
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  gradientColors: string[];
+  onPress: () => void;
+}
+
+function PracticeCard({ title, description, icon, color, gradientColors, onPress }: PracticeCardProps) {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <Pressable
+      style={({ pressed }) => [
+        styles.practiceCard,
+        pressed && styles.practiceCardPressed
+      ]}
+      onPress={onPress}
+    >
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.cardGradient}
+      >
+        <View style={styles.cardIconContainer}>
+          <IconSymbol name={icon} size={48} color="#fff" />
+        </View>
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardDescription}>{description}</Text>
+        </View>
+        <View style={styles.cardArrow}>
+          <IconSymbol name="chevron.right" size={24} color="#fff" />
+        </View>
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
+export default function PracticeScreen() {
+  const router = useRouter();
+
+  const practiceModules = [
+    {
+      title: 'Listening',
+      description: 'Practice with diverse audio recordings and accents',
+      icon: 'headphones',
+      color: '#3BB9F0',
+      gradientColors: ['#3BB9F0', '#2A8CC7'],
+      route: '/listening',
+    },
+    {
+      title: 'Reading',
+      description: 'Enhance comprehension with academic texts',
+      icon: 'book.fill',
+      color: '#4CAF50',
+      gradientColors: ['#4CAF50', '#388E3C'],
+      route: '/reading',
+    },
+    {
+      title: 'Writing',
+      description: 'Improve essay and report writing skills',
+      icon: 'pencil.and.list.clipboard',
+      color: '#FF9800',
+      gradientColors: ['#FF9800', '#F57C00'],
+      route: '/writing',
+    },
+    {
+      title: 'Speaking',
+      description: 'Build confidence with AI-powered practice',
+      icon: 'mic.fill',
+      color: '#E91E63',
+      gradientColors: ['#E91E63', '#C2185B'],
+      route: '/speaking',
+    },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>Practice</Text>
+            <Text style={styles.headerSubtitle}>Choose a skill to practice</Text>
+          </View>
+        </View>
+
+        {/* Practice Cards */}
+        <View style={styles.cardsContainer}>
+          {practiceModules.map((module, index) => (
+            <PracticeCard
+              key={index}
+              title={module.title}
+              description={module.description}
+              icon={module.icon}
+              color={module.color}
+              gradientColors={module.gradientColors}
+              onPress={() => router.push(module.route)}
+            />
+          ))}
+        </View>
+
+        {/* Info Section */}
+        <View style={styles.infoSection}>
+          <View style={styles.infoCard}>
+            <View style={styles.infoIconContainer}>
+              <IconSymbol name="star.fill" size={24} color="#3BB9F0" />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>Track Your Progress</Text>
+              <Text style={styles.infoDescription}>
+                Monitor your performance across all four skills with detailed analytics
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoCard}>
+            <View style={styles.infoIconContainer}>
+              <IconSymbol name="brain" size={24} color="#4CAF50" />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>AI-Powered Feedback</Text>
+              <Text style={styles.infoDescription}>
+                Get instant, personalized feedback to improve faster
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
   },
-  titleContainer: {
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 100,
+  },
+  header: {
+    marginBottom: 32,
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#666',
+  },
+  cardsContainer: {
+    gap: 16,
+    marginBottom: 32,
+  },
+  practiceCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  practiceCardPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  cardGradient: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    padding: 20,
+    minHeight: 120,
+  },
+  cardIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  cardContent: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 6,
+  },
+  cardDescription: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 20,
+  },
+  cardArrow: {
+    marginLeft: 12,
+  },
+  infoSection: {
+    gap: 16,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  infoIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 4,
+  },
+  infoDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
 });
