@@ -5,7 +5,7 @@ import { UsersService } from '@/services';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 
 export default function EditProfileScreen() {
   const { user } = useAuth();
@@ -150,7 +150,8 @@ export default function EditProfileScreen() {
       if (currentLevel.trim()) {
         const currentLevelNum = parseInt(currentLevel.trim());
         if (!isNaN(currentLevelNum)) {
-          updateData.current_level = currentLevelNum;
+          // Backend expects current_score, not current_level
+          updateData.current_score = currentLevelNum;
         }
       }
       if (testDate.trim()) updateData.test_date = testDate.trim();
@@ -314,9 +315,15 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
-      {/* Header */}
-      <View style={styles.header}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
+          {/* Header */}
+          <View style={styles.header}>
         <Pressable onPress={handleCancel} style={styles.headerButton}>
           <IconSymbol name="chevron.left" size={28} color={colors.text} />
         </Pressable>
@@ -415,7 +422,9 @@ export default function EditProfileScreen() {
             onChangeText={setTargetBand}
             placeholder="e.g., 7 or 8"
             placeholderTextColor={colors.textSecondary}
-            keyboardType="number-pad"
+            keyboardType="decimal-pad"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
         </View>
 
@@ -428,12 +437,13 @@ export default function EditProfileScreen() {
             onChangeText={setCurrentLevel}
             placeholder="e.g., 5 or 6"
             placeholderTextColor={colors.textSecondary}
-            keyboardType="number-pad"
+            keyboardType="decimal-pad"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
         </View>
 
         {/* Test Date Input */}
-        <KeyboardAvoidingView>
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Test Date</Text>
           <TextInput
@@ -442,12 +452,10 @@ export default function EditProfileScreen() {
             onChangeText={setTestDate}
             placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.textSecondary}
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
-          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-            Format: YYYY-MM-DD (e.g., 2024-12-31)
-          </Text>
         </View>
-        </KeyboardAvoidingView>
       </View>
 
       {/* Action Buttons */}
@@ -476,6 +484,8 @@ export default function EditProfileScreen() {
         </Pressable>
       </View>
     </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -584,6 +594,29 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: 13,
     marginTop: 4,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  datePickerText: {
+    fontSize: 16,
+  },
+  doneButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  doneButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   buttonContainer: {
     gap: 12,

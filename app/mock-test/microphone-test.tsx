@@ -4,7 +4,7 @@ import { Audio } from 'expo-av';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface StartTestResponse {
   test_session_id: string;
@@ -40,8 +40,26 @@ export default function MicrophoneTestScreen() {
   const recordingRef = useRef<Audio.Recording | null>(null);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
 
-  // Cleanup audio on unmount
+  // Initialize audio mode and cleanup on unmount
   useEffect(() => {
+    // Initialize audio mode to play in silent mode
+    const initAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
+        console.log('[MicTest] Audio mode initialized successfully');
+      } catch (err) {
+        console.error('[MicTest] Error initializing audio mode:', err);
+      }
+    };
+
+    initAudio();
+
     return () => {
       if (soundRef.current) {
         soundRef.current.unloadAsync();
@@ -70,40 +88,94 @@ export default function MicrophoneTestScreen() {
   }, [currentStep, isSimulation]);
 
   const handlePlayAudio = async () => {
-    setIsPlayingAudio(true);
-    setAudioProgress(0);
-    
-    const text = "Hello, I am your AI examiner. Do you hear me clearly?";
-    
-    // Animate progress bar over 5 seconds
-    const duration = 5000;
-    const interval = 100;
-    let elapsed = 0;
-    
-    const progressInterval = setInterval(() => {
-      elapsed += interval;
-      setAudioProgress(elapsed / duration);
-      if (elapsed >= duration) {
-        clearInterval(progressInterval);
-      }
-    }, interval);
+    try {
+      console.log('[MicTest] Starting audio playback...');
 
-    Speech.speak(text, {
-      language: 'en-US',
-      rate: 0.9,
-      pitch: 1.0,
-      onDone: () => {
-        clearInterval(progressInterval);
+      // Unload previous sound if exists
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+
+      // Ensure audio mode is set for playback in silent mode
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      setIsPlayingAudio(true);
+      setAudioProgress(0);
+
+      // Generate a simple test tone using Web Audio API (for web)
+      // For mobile, we'll use a reliable CDN audio file
+      const audioUrl = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg';
+
+      let progressInterval: NodeJS.Timeout | null = null;
+
+      // Fallback progress animation since we might not get playback updates
+      progressInterval = setInterval(() => {
+        setAudioProgress(prev => {
+          if (prev >= 1) {
+            if (progressInterval) clearInterval(progressInterval);
+            return 1;
+          }
+          return prev + 0.02; // increment over ~5 seconds
+        });
+      }, 100);
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUrl },
+        { shouldPlay: true, volume: 1.0 },
+        (playbackStatus) => {
+          if (playbackStatus.isLoaded && playbackStatus.didJustFinish) {
+            console.log('[MicTest] Audio playback completed');
+            if (progressInterval) clearInterval(progressInterval);
+            setIsPlayingAudio(false);
+            setAudioProgress(1);
+            setCurrentStep('microphone');
+          }
+
+          // Update progress based on actual playback position if available
+          if (playbackStatus.isLoaded && playbackStatus.durationMillis && playbackStatus.durationMillis > 0) {
+            const progress = playbackStatus.positionMillis / playbackStatus.durationMillis;
+            setAudioProgress(progress);
+          }
+        }
+      );
+
+      soundRef.current = sound;
+      console.log('[MicTest] Audio loaded and playing');
+
+      // Fallback: auto-complete after 3 seconds if playback doesn't finish
+      setTimeout(() => {
+        if (progressInterval) clearInterval(progressInterval);
         setIsPlayingAudio(false);
         setAudioProgress(1);
         setCurrentStep('microphone');
-      },
-      onError: () => {
-        clearInterval(progressInterval);
-        setIsPlayingAudio(false);
-        setCurrentStep('microphone');
-      },
-    });
+      }, 3000);
+    } catch (err) {
+      console.error('[MicTest] Error in handlePlayAudio:', err);
+      setIsPlayingAudio(false);
+
+      // Show error but still allow to proceed
+      Alert.alert(
+        'Audio Playback Issue',
+        'Unable to play test audio. This might be due to network issues. You can still proceed with the microphone test.',
+        [
+          {
+            text: 'Proceed Anyway',
+            onPress: () => {
+              setAudioProgress(1);
+              setCurrentStep('microphone');
+            }
+          },
+          { text: 'Try Again', onPress: handlePlayAudio }
+        ]
+      );
+    }
   };
 
   const handleStartRecording = async () => {
@@ -153,10 +225,11 @@ export default function MicrophoneTestScreen() {
       recordingRef.current = null;
       setIsRecording(false);
       setHasRecorded(true);
-      
-      // Reset audio mode
+
+      // Reset audio mode but keep silent mode playback enabled
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
       });
     } catch (err) {
       console.error('Error stopping recording:', err);
@@ -168,8 +241,14 @@ export default function MicrophoneTestScreen() {
     if (!recordingUri) return;
 
     setIsPlayingRecording(true);
-    
+
     try {
+      // Configure audio mode to play in silent mode
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
       // Unload previous sound if exists
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
@@ -269,7 +348,7 @@ export default function MicrophoneTestScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <Pressable style={styles.backButton} onPress={() => router.push('/mock-test')}>
           <IconSymbol name="chevron.left" size={28} color="#000" />
         </Pressable>
         <Text style={styles.headerTitle}>IELTS SPEAKING TEST</Text>

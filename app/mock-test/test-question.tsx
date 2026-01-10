@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, View, Text, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, Pressable, ActivityIndicator, Alert, Animated } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
@@ -6,11 +6,65 @@ import { Audio } from 'expo-av';
 import { QuestionsService } from '@/services/questions.service';
 import { ExamsService } from '@/services/exams.service';
 import { QuestionDetail } from '@/services/types';
+import * as Speech from 'expo-speech';
 
 interface RecordingData {
   uri: string;
   questionId: number;
   part: number;
+  duration: number; // Duration in seconds
+}
+
+// Animated Waveform Component
+function AnimatedWaveBar({ isActive, delay = 0 }: { isActive: boolean; delay?: number }) {
+  const animatedHeight = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    if (isActive) {
+      // Create continuous pulsing animation
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animatedHeight, {
+            toValue: 1,
+            duration: 300 + Math.random() * 200,
+            delay,
+            useNativeDriver: false,
+          }),
+          Animated.timing(animatedHeight, {
+            toValue: 0.3,
+            duration: 300 + Math.random() * 200,
+            useNativeDriver: false,
+          }),
+        ])
+      );
+      animation.start();
+      return () => animation.stop();
+    } else {
+      // Reset to base height when not active
+      Animated.timing(animatedHeight, {
+        toValue: 0.3,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [isActive, delay]);
+
+  const height = animatedHeight.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['20%', '100%'],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.waveBar,
+        {
+          height,
+          backgroundColor: isActive ? '#FF6B6B' : '#FFD0D0',
+        },
+      ]}
+    />
+  );
 }
 
 export default function TestQuestionScreen() {
@@ -69,20 +123,19 @@ export default function TestQuestionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [recordings, setRecordings] = useState<RecordingData[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
   const [timeRemaining, setTimeRemaining] = useState<number>(0); // in seconds
   const [showTimeWarning, setShowTimeWarning] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackPosition, setPlaybackPosition] = useState(0);
-  const [playbackDuration, setPlaybackDuration] = useState(0);
   const [part2ThinkingTime, setPart2ThinkingTime] = useState(60);
   const [isThinkingPart2, setIsThinkingPart2] = useState(false);
   const [hasSeenPart2Thinking, setHasSeenPart2Thinking] = useState(false);
+  const [isPlayingQuestion, setIsPlayingQuestion] = useState(false);
+  const [hasListenedToQuestion, setHasListenedToQuestion] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const examTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const playbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const part2ThinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load all questions on mount
@@ -196,7 +249,14 @@ export default function TestQuestionScreen() {
           if (examTimerRef.current) {
             clearInterval(examTimerRef.current);
           }
-          handleTestComplete();
+          // Stop recording if active before submitting
+          if (isRecording && recordingRef.current) {
+            handleStopRecording().then(() => {
+              handleTestComplete();
+            });
+          } else {
+            handleTestComplete();
+          }
           return 0;
         }
 
@@ -282,13 +342,40 @@ export default function TestQuestionScreen() {
       // Stop recording
       await handleStopRecording();
     } else {
+      // If question is playing, stop it first
+      if (isPlayingQuestion) {
+        Speech.stop();
+        setIsPlayingQuestion(false);
+        // Small delay to let speech stop
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       // Start recording
       await handleStartRecording();
     }
   };
 
   const handleStartRecording = async () => {
+    // Just start recording - question auto-plays anyway
+    await startRecordingNow();
+  };
+
+  const startRecordingNow = async () => {
     try {
+      // Clean up any existing recording first
+      if (recordingRef.current) {
+        try {
+          const status = await recordingRef.current.getStatusAsync();
+          if (status.canRecord) {
+            await recordingRef.current.stopAndUnloadAsync();
+          } else {
+            await recordingRef.current.stopAndUnloadAsync().catch(() => {});
+          }
+        } catch (cleanupErr) {
+          console.log('[TestQuestion] Cleanup error (non-critical):', cleanupErr);
+        }
+        recordingRef.current = null;
+      }
+
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) {
         setError('Microphone permission is required');
@@ -313,133 +400,95 @@ export default function TestQuestionScreen() {
   };
 
   const handleStopRecording = async () => {
-    if (!recordingRef.current) return;
+    if (!recordingRef.current) {
+      setIsRecording(false);
+      return;
+    }
 
     try {
       const status = await recordingRef.current.getStatusAsync();
-      if (status.canRecord) {
-        await recordingRef.current.stopAndUnloadAsync();
-      }
+
+      // Get URI before stopping
       const uri = recordingRef.current.getURI();
 
+      // Capture the current recording duration
+      const duration = recordingTime;
+
+      // Stop the recording if it's still recording
+      if (status.canRecord || status.isRecording) {
+        await recordingRef.current.stopAndUnloadAsync();
+      } else {
+        // Already stopped, just unload
+        await recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      }
+
+      // Save the recording if we have a URI
       if (uri && currentQuestionId) {
         setRecordings(prev => {
           const filtered = prev.filter(r => r.questionId !== currentQuestionId);
-          return [...filtered, { uri, questionId: currentQuestionId, part: currentPart }];
+          return [...filtered, { uri, questionId: currentQuestionId, part: currentPart, duration }];
         });
       }
 
+      // Clean up reference
       recordingRef.current = null;
       setIsRecording(false);
       setRecordingTime(0);
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-      });
-    } catch (err) {
-      console.error('[TestQuestion] Error stopping recording:', err);
-      setIsRecording(false);
-    }
-  };
-
-  const handlePlayRecording = async () => {
-    if (isPlaying) {
-      await handleStopPlayback();
-    } else {
-      await handleStartPlayback();
-    }
-  };
-
-  const handleStartPlayback = async () => {
-    try {
-      const currentRecording = recordings.find(r => r.questionId === currentQuestionId);
-      if (!currentRecording) {
-        setError('No recording found for this question');
-        return;
-      }
-
-      // Stop recording if active
-      if (isRecording) {
-        await handleStopRecording();
-      }
-
-      // Unload any existing sound
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-
+      // Reset audio mode
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
       });
-
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: currentRecording.uri },
-        { shouldPlay: true },
-        onPlaybackStatusUpdate
-      );
-
-      soundRef.current = sound;
-      setIsPlaying(true);
     } catch (err) {
-      console.error('[TestQuestion] Error playing recording:', err);
-      setError('Failed to play recording');
+      console.error('[TestQuestion] Error stopping recording:', err);
+      // Still clean up even if there's an error
+      recordingRef.current = null;
+      setIsRecording(false);
+      setRecordingTime(0);
     }
   };
 
-  const handleStopPlayback = async () => {
-    try {
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-      setIsPlaying(false);
-      setPlaybackPosition(0);
-      if (playbackTimerRef.current) {
-        clearInterval(playbackTimerRef.current);
-        playbackTimerRef.current = null;
-      }
-    } catch (err) {
-      console.error('[TestQuestion] Error stopping playback:', err);
-      setIsPlaying(false);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      if (status.durationMillis) {
-        setPlaybackDuration(Math.floor(status.durationMillis / 1000));
-      }
-      if (status.positionMillis) {
-        setPlaybackPosition(Math.floor(status.positionMillis / 1000));
-      }
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPlaybackPosition(0);
-      }
-    }
-  };
-
-  // Cleanup sound on unmount or question change
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
+      // Clean up recording
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current = null;
       }
-      if (playbackTimerRef.current) {
-        clearInterval(playbackTimerRef.current);
+      // Clean up timers
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
       }
       if (part2ThinkingTimerRef.current) {
         clearInterval(part2ThinkingTimerRef.current);
       }
+      // Stop speech
+      Speech.stop();
     };
   }, []);
 
-  // Stop playback when changing questions
+  // Reset question listening state and auto-play question when changing questions
   useEffect(() => {
-    handleStopPlayback();
+    setHasListenedToQuestion(false);
+    setIsPlayingQuestion(false);
+    // Stop any ongoing speech
+    Speech.stop();
+
+    // Stop recording timer when changing questions
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    // Auto-play the question after a short delay (unless in Part 2 thinking time)
+    if (currentQuestion?.question_text && !isThinkingPart2) {
+      const autoPlayTimer = setTimeout(() => {
+        handlePlayQuestion();
+      }, 500); // Small delay to let the UI settle
+
+      return () => clearTimeout(autoPlayTimer);
+    }
   }, [currentQuestionId]);
 
   // Part 2 thinking timer logic
@@ -462,6 +511,14 @@ export default function TestQuestionScreen() {
             }
             setIsThinkingPart2(false);
             setHasSeenPart2Thinking(true);
+
+            // Auto-play question after thinking time ends
+            setTimeout(() => {
+              if (currentQuestion?.question_text) {
+                handlePlayQuestion();
+              }
+            }, 500);
+
             return 0;
           }
           return prev - 1;
@@ -483,26 +540,42 @@ export default function TestQuestionScreen() {
     setIsThinkingPart2(false);
     setHasSeenPart2Thinking(true);
     setPart2ThinkingTime(0);
+
+    // Auto-play question after skipping thinking time
+    setTimeout(() => {
+      if (currentQuestion?.question_text) {
+        handlePlayQuestion();
+      }
+    }, 500);
   };
 
-  const handleDeleteRecording = async () => {
-    try {
-      // Stop playback if active
-      if (isPlaying) {
-        await handleStopPlayback();
-      }
+  const handlePlayQuestion = async () => {
+    if (!currentQuestion?.question_text) return;
 
-      // Remove recording for current question
-      setRecordings(prev => prev.filter(r => r.questionId !== currentQuestionId));
+    if (isPlayingQuestion) {
+      // Stop the question playback
+      Speech.stop();
+      setIsPlayingQuestion(false);
+    } else {
+      // Play the question
+      setIsPlayingQuestion(true);
 
-      Alert.alert(
-        'Recording Deleted',
-        'You can now record a new answer for this question.',
-        [{ text: 'OK' }]
-      );
-    } catch (err) {
-      console.error('[TestQuestion] Error deleting recording:', err);
-      setError('Failed to delete recording');
+      Speech.speak(currentQuestion.question_text, {
+        language: 'en-US',
+        pitch: 1.0,
+        rate: 0.9, // Slightly slower for clarity
+        onDone: () => {
+          setIsPlayingQuestion(false);
+          setHasListenedToQuestion(true);
+        },
+        onStopped: () => {
+          setIsPlayingQuestion(false);
+        },
+        onError: () => {
+          setIsPlayingQuestion(false);
+          setError('Failed to play question audio');
+        },
+      });
     }
   };
 
@@ -514,9 +587,19 @@ export default function TestQuestionScreen() {
   }, [autoSubmit]);
 
   const handleNextQuestion = async () => {
+    // Stop any playing question audio
+    Speech.stop();
+    setIsPlayingQuestion(false);
+
+    // If currently recording, stop and save the recording first
+    if (isRecording) {
+      await handleStopRecording();
+      // Wait for state to update after recording is saved
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
     if (currentQuestionIndex < currentQuestionIds.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setIsRecording(false);
       setRecordingTime(0);
     } else {
       // Check if we need to move to next part
@@ -529,25 +612,34 @@ export default function TestQuestionScreen() {
           setCurrentPart(3);
         }
         setCurrentQuestionIndex(0);
-        setIsRecording(false);
         setRecordingTime(0);
       } else {
-        // Test complete - navigate to review screen
-        const recordedQuestionIds = recordings.map(r => r.questionId);
-        router.push({
-          pathname: '/mock-test/test-review',
-          params: {
-            testId,
-            mode,
-            testSessionId,
-            part1: JSON.stringify(part1Ids),
-            part2: JSON.stringify(part2Ids),
-            part3: JSON.stringify(part3Ids),
-            recordings: JSON.stringify(recordedQuestionIds),
-            timeLimit
-          }
-        });
+        // Test complete - submit directly (no review screen, like real IELTS)
+        // Wait a bit more before submitting to ensure recordings state is updated
+        await new Promise(resolve => setTimeout(resolve, 100));
+        handleTestComplete();
       }
+    }
+  };
+
+  const submitEmptyTest = async () => {
+    setIsSubmitting(true);
+    try {
+      console.log('[TestQuestion] Submitting empty test...');
+
+      // Navigate to completion screen without actual submission
+      router.push({
+        pathname: '/mock-test/test-complete',
+        params: {
+          testId,
+          testName: 'IELTS Speaking Mock Test',
+          testSessionId,
+        },
+      });
+    } catch (err: any) {
+      console.error('[TestQuestion] Error:', err);
+      setError(err?.message || 'Failed to complete test');
+      setIsSubmitting(false);
     }
   };
 
@@ -557,71 +649,156 @@ export default function TestQuestionScreen() {
       return;
     }
 
-    setIsSubmitting(true);
+    // If currently recording, stop and save it first
+    if (isRecording && recordingRef.current) {
+      console.log('[TestQuestion] Stopping active recording before submit...');
+      await handleStopRecording();
+      // Wait a moment for state to update
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
 
-    try {
-      console.log('[TestQuestion] Submitting test...');
+    // Use a callback to get the latest recordings state
+    setRecordings(currentRecordings => {
+      console.log('[TestQuestion] Final recordings count:', currentRecordings.length);
 
-      // Step 1: Get upload URLs for all recordings
-      const answersByPart: {
-        part1?: Record<string, string>;
-        part2?: Record<string, string>;
-        part3?: Record<string, string>;
-      } = {};
-
-      recordings.forEach(rec => {
-        const partKey = `part${rec.part}` as 'part1' | 'part2' | 'part3';
-        if (!answersByPart[partKey]) {
-          answersByPart[partKey] = {};
-        }
-        answersByPart[partKey]![rec.questionId.toString()] = '';
-      });
-
-      console.log('[TestQuestion] Requesting upload URLs...');
-      const uploadResponse = await ExamsService.getSimulationUploadUrls({
-        test_session_id: testSessionId,
-        answers: answersByPart,
-      });
-
-      // Step 2: Upload each recording
-      console.log('[TestQuestion] Uploading recordings...');
-      const uploadedPaths: {
-        part1?: Record<string, string>;
-        part2?: Record<string, string>;
-        part3?: Record<string, string>;
-      } = {};
-
-      for (const rec of recordings) {
-        const partKey = `part${rec.part}` as 'part1' | 'part2' | 'part3';
-        const uploadUrl = uploadResponse.upload_urls[partKey]?.[rec.questionId.toString()];
-
-        if (uploadUrl) {
-          // Read the audio file
-          const response = await fetch(rec.uri);
-          const blob = await response.blob();
-
-          // Upload to presigned URL
-          await ExamsService.uploadAudioToR2(uploadUrl, blob);
-
-          // Store the path (extract from presigned URL)
-          const url = new URL(uploadUrl);
-          const path = url.pathname.substring(1); // Remove leading '/'
-
-          if (!uploadedPaths[partKey]) {
-            uploadedPaths[partKey] = {};
-          }
-          uploadedPaths[partKey]![rec.questionId.toString()] = path;
-        }
+      // Only show alert if truly no recordings
+      if (currentRecordings.length === 0) {
+        Alert.alert(
+          'No Recordings',
+          'You haven\'t recorded any answers. Do you want to submit an empty test?',
+          [
+            { text: 'Go Back', style: 'cancel' },
+            { text: 'Submit Empty', style: 'destructive', onPress: () => submitEmptyTest() }
+          ]
+        );
+        return currentRecordings;
       }
 
-      // Step 3: Confirm submission
-      console.log('[TestQuestion] Confirming submission...');
-      await ExamsService.confirmSimulationSubmission({
-        test_session_id: testSessionId,
-        answers: uploadedPaths,
+      // Start submission process
+      setIsSubmitting(true);
+      setUploadProgress(0);
+      setUploadStatus('Preparing submission...');
+
+      // Continue with actual submission
+      submitTest(currentRecordings);
+
+      return currentRecordings;
+    });
+  };
+
+  const submitTest = async (recordingsToSubmit: RecordingData[]) => {
+    try {
+      console.log('[TestQuestion] Submitting test...');
+      console.log('[TestQuestion] Total recordings:', recordingsToSubmit.length);
+
+      // Group recordings by part
+      const recordingsByPart: {
+        part1: RecordingData[];
+        part2: RecordingData[];
+        part3: RecordingData[];
+      } = { part1: [], part2: [], part3: [] };
+
+      recordingsToSubmit.forEach(rec => {
+        const partKey = `part${rec.part}` as 'part1' | 'part2' | 'part3';
+        recordingsByPart[partKey].push(rec);
       });
 
-      console.log('[TestQuestion] Test submitted successfully!');
+      // Determine which parts have recordings and submit in order
+      const partsToSubmit: Array<'part1' | 'part2' | 'part3'> = [];
+      if (recordingsByPart.part1.length > 0) partsToSubmit.push('part1');
+      if (recordingsByPart.part2.length > 0) partsToSubmit.push('part2');
+      if (recordingsByPart.part3.length > 0) partsToSubmit.push('part3');
+
+      console.log('[TestQuestion] Parts to submit:', partsToSubmit);
+
+      // Submit each part separately
+      for (let i = 0; i < partsToSubmit.length; i++) {
+        const partKey = partsToSubmit[i];
+        const partRecordings = recordingsByPart[partKey];
+
+        setUploadStatus(`Uploading ${partKey.toUpperCase()} (${i + 1}/${partsToSubmit.length})...`);
+        console.log(`[TestQuestion] Submitting ${partKey} with ${partRecordings.length} recordings`);
+
+        // Step 1: Get upload URLs for this part
+        const answersByPart: Record<string, string> = {};
+        partRecordings.forEach(rec => {
+          answersByPart[rec.questionId.toString()] = '';
+        });
+
+        const uploadRequest = {
+          test_session_id: testSessionId,
+          answers: {
+            [partKey]: answersByPart
+          },
+        };
+
+        console.log(`[TestQuestion] Requesting upload URLs for ${partKey}:`, uploadRequest);
+        const uploadResponse = await ExamsService.getSimulationUploadUrls(uploadRequest);
+
+        // Backend returns "answers" not "upload_urls"
+        const uploadUrls = (uploadResponse as any).answers?.[partKey] || uploadResponse.upload_urls?.[partKey];
+
+        if (!uploadUrls) {
+          throw new Error(`No upload URLs received for ${partKey}`);
+        }
+
+        console.log(`[TestQuestion] Received ${Object.keys(uploadUrls).length} upload URLs for ${partKey}`);
+
+        // Step 2: Upload each recording for this part
+        const uploadedPaths: Record<string, string> = {};
+
+        for (let j = 0; j < partRecordings.length; j++) {
+          const rec = partRecordings[j];
+          const uploadUrl = uploadUrls[rec.questionId.toString()];
+
+          if (!uploadUrl) {
+            console.error(`[TestQuestion] No upload URL for question ${rec.questionId}`);
+            continue;
+          }
+
+          try {
+            setUploadStatus(`Uploading ${partKey.toUpperCase()} - Question ${j + 1}/${partRecordings.length}...`);
+
+            // Read the audio file
+            const response = await fetch(rec.uri);
+            const blob = await response.blob();
+
+            // Upload to presigned URL
+            await ExamsService.uploadAudioToR2(uploadUrl, blob);
+
+            // Store the path (extract from presigned URL)
+            const url = new URL(uploadUrl);
+            const path = url.pathname.substring(1); // Remove leading '/'
+            uploadedPaths[rec.questionId.toString()] = path;
+
+            console.log(`[TestQuestion] Uploaded question ${rec.questionId} successfully`);
+
+            // Update progress
+            const totalProgress = ((i * partRecordings.length + j + 1) / recordingsToSubmit.length) * 80; // 80% for uploads
+            setUploadProgress(Math.round(totalProgress));
+          } catch (uploadErr: any) {
+            console.error(`[TestQuestion] Failed to upload question ${rec.questionId}:`, uploadErr);
+            throw new Error(`Failed to upload recording for question ${rec.questionId}: ${uploadErr.message}`);
+          }
+        }
+
+        // Step 3: Confirm submission for this part
+        setUploadStatus(`Confirming ${partKey.toUpperCase()}...`);
+        console.log(`[TestQuestion] Confirming submission for ${partKey}`);
+
+        await ExamsService.confirmSimulationSubmission({
+          test_session_id: testSessionId,
+          answers: {
+            [partKey]: uploadedPaths
+          },
+        });
+
+        console.log(`[TestQuestion] ${partKey} submitted successfully!`);
+        setUploadProgress(Math.round(((i + 1) / partsToSubmit.length) * 100));
+      }
+
+      setUploadStatus('Submission complete!');
+      console.log('[TestQuestion] All parts submitted successfully!');
 
       // Navigate to completion screen
       router.push({
@@ -629,11 +806,20 @@ export default function TestQuestionScreen() {
         params: {
           testId,
           testName: 'IELTS Speaking Mock Test',
+          testSessionId,
         },
       });
     } catch (err: any) {
       console.error('[TestQuestion] Error submitting test:', err);
-      setError(err?.message || 'Failed to submit test');
+      setUploadStatus('');
+      setUploadProgress(0);
+      Alert.alert(
+        'Submission Failed',
+        err?.message || 'Failed to submit test. Please check your internet connection and try again.',
+        [
+          { text: 'OK', onPress: () => setError(err?.message || 'Failed to submit test') }
+        ]
+      );
       setIsSubmitting(false);
     }
   };
@@ -645,6 +831,10 @@ export default function TestQuestionScreen() {
   };
 
   const handleBackPress = () => {
+    // Stop speech and recording before exiting
+    Speech.stop();
+    setIsPlayingQuestion(false);
+
     if (timeRemaining > 0 && !isSubmitting) {
       Alert.alert(
         'Exit Exam?',
@@ -654,12 +844,24 @@ export default function TestQuestionScreen() {
           {
             text: 'Exit',
             style: 'destructive',
-            onPress: () => router.back()
+            onPress: () => {
+              // Stop any ongoing recording
+              if (recordingRef.current) {
+                recordingRef.current.stopAndUnloadAsync().catch(() => {});
+                recordingRef.current = null;
+              }
+              router.push('/mock-test');
+            }
           }
         ]
       );
     } else {
-      router.back();
+      // Stop any ongoing recording
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current = null;
+      }
+      router.push('/mock-test');
     }
   };
 
@@ -716,7 +918,7 @@ export default function TestQuestionScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={handleBackPress}>
+          <Pressable style={styles.backButton} onPress={() => router.push('/mock-test')}>
             <IconSymbol name="chevron.left" size={28} color="#000" />
           </Pressable>
           <Text style={styles.headerTitle}>AI Mock Test</Text>
@@ -730,7 +932,7 @@ export default function TestQuestionScreen() {
               <IconSymbol name="arrow.clockwise" size={20} color="#fff" />
               <Text style={styles.retryButtonText}>Retry</Text>
             </Pressable>
-            <Pressable style={styles.secondaryRetryButton} onPress={handleBackPress}>
+            <Pressable style={styles.secondaryRetryButton} onPress={() => router.push('/mock-test')}>
               <Text style={styles.secondaryRetryButtonText}>Go Back</Text>
             </Pressable>
           </View>
@@ -741,6 +943,27 @@ export default function TestQuestionScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Upload Progress Overlay */}
+      {isSubmitting && uploadProgress > 0 && (
+        <View style={styles.uploadOverlay}>
+          <View style={styles.uploadModal}>
+            <ActivityIndicator size="large" color="#3BB9F0" />
+            <Text style={styles.uploadTitle}>Submitting Test</Text>
+            <Text style={styles.uploadStatus}>{uploadStatus}</Text>
+            <View style={styles.uploadProgressBarContainer}>
+              <View
+                style={[
+                  styles.uploadProgressBarFill,
+                  { width: `${uploadProgress}%` }
+                ]}
+              />
+            </View>
+            <Text style={styles.uploadProgressText}>{uploadProgress}%</Text>
+            <Text style={styles.uploadWarning}>Please don't close the app</Text>
+          </View>
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -768,7 +991,15 @@ export default function TestQuestionScreen() {
               </Text>
             </View>
           )}
-          <Pressable style={styles.homeButton} onPress={() => router.push('/(tabs)')}>
+          <Pressable style={styles.homeButton} onPress={() => {
+            Speech.stop();
+            setIsPlayingQuestion(false);
+            if (recordingRef.current) {
+              recordingRef.current.stopAndUnloadAsync().catch(() => {});
+              recordingRef.current = null;
+            }
+            router.push('/(tabs)');
+          }}>
             <IconSymbol name="house.fill" size={24} color="#3BB9F0" />
           </Pressable>
         </View>
@@ -821,6 +1052,34 @@ export default function TestQuestionScreen() {
           </View>
         )}
 
+        {/* Listen to Question Button */}
+        <View style={styles.listenSection}>
+          <Pressable
+            style={[
+              styles.listenButton,
+              isPlayingQuestion && styles.listenButtonActive,
+              hasListenedToQuestion && styles.listenButtonCompleted
+            ]}
+            onPress={handlePlayQuestion}
+            disabled={isThinkingPart2}
+          >
+            <IconSymbol
+              name={isPlayingQuestion ? "speaker.wave.3.fill" : "speaker.wave.2.fill"}
+              size={24}
+              color={hasListenedToQuestion ? "#4CAF50" : "#3BB9F0"}
+            />
+            <Text style={[
+              styles.listenButtonText,
+              hasListenedToQuestion && styles.listenButtonTextCompleted
+            ]}>
+              {isPlayingQuestion ? 'Playing Question...' : 'Listen Again'}
+            </Text>
+          </Pressable>
+          {isPlayingQuestion && (
+            <Text style={styles.listenHint}>Question is being read aloud...</Text>
+          )}
+        </View>
+
         {/* Question Card */}
         <View style={styles.questionCard}>
           <Text style={styles.questionText}>
@@ -830,63 +1089,68 @@ export default function TestQuestionScreen() {
 
         {/* Recording Controls */}
         <View style={styles.recordingSection}>
-          {/* Recording Line Left */}
-          <View style={[styles.recordingLine, isRecording && styles.recordingLineActive]} />
+          {/* Animated Waveform Left */}
+          <View style={styles.waveformContainer}>
+            <AnimatedWaveBar isActive={isRecording} delay={0} />
+            <AnimatedWaveBar isActive={isRecording} delay={50} />
+            <AnimatedWaveBar isActive={isRecording} delay={100} />
+            <AnimatedWaveBar isActive={isRecording} delay={150} />
+            <AnimatedWaveBar isActive={isRecording} delay={200} />
+          </View>
 
           {/* Microphone Button */}
           <Pressable
             style={[
               styles.micButton,
               isRecording && styles.micButtonActive,
-              isThinkingPart2 && styles.micButtonDisabled
+              isThinkingPart2 && styles.micButtonDisabled,
+              isPlayingQuestion && !isRecording && styles.micButtonPlaying
             ]}
             onPress={handleRecord}
             disabled={isThinkingPart2}
           >
-            <IconSymbol name="mic.fill" size={32} color={isThinkingPart2 ? "#CCC" : "#FF6B6B"} />
+            <IconSymbol
+              name="mic.fill"
+              size={32}
+              color={isThinkingPart2 ? "#CCC" : isPlayingQuestion && !isRecording ? "#FFA500" : "#FF6B6B"}
+            />
           </Pressable>
 
-          {/* Recording Line Right */}
-          <View style={[styles.recordingLine, isRecording && styles.recordingLineActive]} />
+          {/* Animated Waveform Right */}
+          <View style={styles.waveformContainer}>
+            <AnimatedWaveBar isActive={isRecording} delay={200} />
+            <AnimatedWaveBar isActive={isRecording} delay={150} />
+            <AnimatedWaveBar isActive={isRecording} delay={100} />
+            <AnimatedWaveBar isActive={isRecording} delay={50} />
+            <AnimatedWaveBar isActive={isRecording} delay={0} />
+          </View>
         </View>
 
         {/* Timer */}
         <Text style={styles.timer}>
-          {isPlaying ? formatTime(playbackPosition) : formatTime(recordingTime)}
+          {formatTime(recordingTime)}
         </Text>
 
-        {/* Playback Controls - Show if recording exists for current question */}
-        {recordings.find(r => r.questionId === currentQuestionId) && (
-          <View style={styles.playbackContainer}>
-            <Pressable
-              style={[styles.playbackButton, isPlaying && styles.playbackButtonActive]}
-              onPress={handlePlayRecording}
-              disabled={isRecording}
-            >
-              <IconSymbol
-                name={isPlaying ? "pause.fill" : "play.fill"}
-                size={20}
-                color={isRecording ? "#CCC" : "#3BB9F0"}
-              />
-              <Text style={[styles.playbackButtonText, isRecording && styles.playbackButtonTextDisabled]}>
-                {isPlaying ? 'Stop Playback' : 'Play Recording'}
+        {/* Recording Hint */}
+        {isRecording && (
+          <Text style={styles.recordingActiveHint}>
+            Recording your answer...
+          </Text>
+        )}
+        {isPlayingQuestion && !isRecording && (
+          <Text style={styles.recordingHint}>
+            Tap mic to stop question and start recording
+          </Text>
+        )}
+        {recordings.find(r => r.questionId === currentQuestionId) && !isRecording && (
+          <View style={styles.recordedBadge}>
+            <IconSymbol name="checkmark.circle.fill" size={20} color="#4CAF50" />
+            <View>
+              <Text style={styles.recordedBadgeText}>Answer Recorded</Text>
+              <Text style={styles.recordedDuration}>
+                {formatTime(recordings.find(r => r.questionId === currentQuestionId)?.duration || 0)}
               </Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.deleteButton}
-              onPress={handleDeleteRecording}
-              disabled={isRecording || isPlaying}
-            >
-              <IconSymbol
-                name="trash.fill"
-                size={20}
-                color={isRecording || isPlaying ? "#CCC" : "#FF6B6B"}
-              />
-              <Text style={[styles.deleteButtonText, (isRecording || isPlaying) && styles.deleteButtonTextDisabled]}>
-                Delete & Re-record
-              </Text>
-            </Pressable>
+            </View>
           </View>
         )}
 
@@ -910,57 +1174,6 @@ export default function TestQuestionScreen() {
             </Text>
           )}
         </Pressable>
-
-        {/* Part Navigation */}
-        <View style={styles.partNavigation}>
-          {part1Ids.length > 0 && (
-            <Pressable
-              style={[styles.partTab, currentPart === 1 && styles.partTabActive]}
-              onPress={() => {
-                setCurrentPart(1);
-                setCurrentQuestionIndex(0);
-                setIsRecording(false);
-                setRecordingTime(0);
-              }}
-            >
-              <Text style={[styles.partTabText, currentPart === 1 && styles.partTabTextActive]}>
-                Part 1
-              </Text>
-            </Pressable>
-          )}
-
-          {part2Ids.length > 0 && (
-            <Pressable
-              style={[styles.partTab, currentPart === 2 && styles.partTabActive]}
-              onPress={() => {
-                setCurrentPart(2);
-                setCurrentQuestionIndex(0);
-                setIsRecording(false);
-                setRecordingTime(0);
-              }}
-            >
-              <Text style={[styles.partTabText, currentPart === 2 && styles.partTabTextActive]}>
-                Part 2
-              </Text>
-            </Pressable>
-          )}
-
-          {part3Ids.length > 0 && (
-            <Pressable
-              style={[styles.partTab, currentPart === 3 && styles.partTabActive]}
-              onPress={() => {
-                setCurrentPart(3);
-                setCurrentQuestionIndex(0);
-                setIsRecording(false);
-                setRecordingTime(0);
-              }}
-            >
-              <Text style={[styles.partTabText, currentPart === 3 && styles.partTabTextActive]}>
-                Part 3
-              </Text>
-            </Pressable>
-          )}
-        </View>
       </ScrollView>
     </View>
   );
@@ -1088,6 +1301,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#3BB9F0',
     borderRadius: 3,
   },
+  listenSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  listenButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F6FC',
+    borderRadius: 30,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  listenButtonActive: {
+    backgroundColor: '#BBDEFB',
+  },
+  listenButtonCompleted: {
+    backgroundColor: '#E8F5E9',
+  },
+  listenButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3BB9F0',
+  },
+  listenButtonTextCompleted: {
+    color: '#4CAF50',
+  },
+  listenHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
   questionCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
@@ -1116,15 +1370,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    gap: 16,
+    gap: 20,
   },
-  recordingLine: {
+  waveformContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    gap: 4,
     flex: 1,
-    height: 2,
-    backgroundColor: '#FFD0D0',
   },
-  recordingLineActive: {
-    backgroundColor: '#FF6B6B',
+  waveBar: {
+    width: 4,
+    borderRadius: 2,
+    backgroundColor: '#FFD0D0',
   },
   micButton: {
     width: 72,
@@ -1148,6 +1407,9 @@ const styles = StyleSheet.create({
   micButtonDisabled: {
     backgroundColor: '#F5F5F5',
     opacity: 0.5,
+  },
+  micButtonPlaying: {
+    backgroundColor: '#FFF4E6',
   },
   thinkingBanner: {
     flexDirection: 'row',
@@ -1205,65 +1467,44 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 8,
   },
-  playbackContainer: {
-    marginBottom: 24,
-    alignItems: 'center',
-    gap: 12,
+  recordingHint: {
+    fontSize: 13,
+    color: '#FF8C00',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontStyle: 'italic',
   },
-  playbackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    borderRadius: 25,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  playbackButtonActive: {
-    backgroundColor: '#BBDEFB',
-  },
-  playbackButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#3BB9F0',
-  },
-  playbackButtonTextDisabled: {
-    color: '#CCC',
-  },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFEBEE',
-    borderRadius: 25,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  deleteButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
+  recordingActiveHint: {
+    fontSize: 13,
     color: '#FF6B6B',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '600',
   },
-  deleteButtonTextDisabled: {
-    color: '#CCC',
+  recordedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 24,
+    alignSelf: 'center',
+  },
+  recordedBadgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4CAF50',
+  },
+  recordedDuration: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#2E7D32',
+    marginTop: 2,
   },
   nextButton: {
     backgroundColor: '#FF8C00',
@@ -1354,30 +1595,69 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  partNavigation: {
-    flexDirection: 'row',
+  uploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
-    gap: 16,
-    marginTop: 32,
+    alignItems: 'center',
+    zIndex: 1000,
   },
-  partTab: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  uploadModal: {
     backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 32,
+    width: '80%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  partTabActive: {
-    borderColor: '#FF8C00',
-    backgroundColor: '#FFF5E6',
+  uploadTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    marginTop: 16,
+    marginBottom: 8,
   },
-  partTabText: {
-    fontSize: 15,
+  uploadStatus: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  uploadProgressBarContainer: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  uploadProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#3BB9F0',
+    borderRadius: 4,
+  },
+  uploadProgressText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#3BB9F0',
+    marginBottom: 12,
+  },
+  uploadWarning: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    textAlign: 'center',
     fontWeight: '600',
-    color: '#999',
-  },
-  partTabTextActive: {
-    color: '#FF8C00',
   },
 });

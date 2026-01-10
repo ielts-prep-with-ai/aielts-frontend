@@ -51,6 +51,9 @@ export default function TestReviewScreen() {
       const part3Ids: number[] = part3 ? JSON.parse(part3) : [];
       const recordedQuestionIds: number[] = recordings ? JSON.parse(recordings) : [];
 
+      console.log('[TestReview] Part IDs:', { part1Ids, part2Ids, part3Ids });
+      console.log('[TestReview] Recorded question IDs:', recordedQuestionIds);
+
       const allQuestionIds = [...part1Ids, ...part2Ids, ...part3Ids];
 
       // Load all questions
@@ -58,12 +61,31 @@ export default function TestReviewScreen() {
       const questionDetails = await Promise.all(questionPromises);
 
       // Map questions to review format
-      const reviewQuestions: ReviewQuestion[] = questionDetails.map(q => ({
-        questionId: q.question_id,
-        part: q.part,
-        questionText: q.question_text,
-        hasRecording: recordedQuestionIds.includes(q.question_id)
-      }));
+      const reviewQuestions: ReviewQuestion[] = questionDetails
+        .map((q: any) => {
+          // Handle both 'id' and 'question_id' field names
+          const questionId = q.question_id || q.id;
+
+          if (!questionId) {
+            console.error('[TestReview] Invalid question:', q);
+            return null;
+          }
+
+          const hasRecording = recordedQuestionIds.includes(questionId);
+          console.log(`[TestReview] Question ${questionId}: hasRecording=${hasRecording}`);
+
+          return {
+            questionId,
+            part: q.part,
+            questionText: q.question_text,
+            hasRecording
+          };
+        })
+        .filter((q): q is ReviewQuestion => q !== null);
+
+      console.log('[TestReview] Final review questions:', reviewQuestions.length);
+      console.log('[TestReview] Answered:', reviewQuestions.filter(q => q.hasRecording).length);
+      console.log('[TestReview] Unanswered:', reviewQuestions.filter(q => !q.hasRecording).length);
 
       setQuestions(reviewQuestions);
       setLoading(false);

@@ -60,6 +60,11 @@ export default function ProfileScreen() {
   const email = profile?.email || user?.email || 'email@example.com';
   const avatarUrl = profile?.avatar_url || user?.picture;
 
+  // Debug logging for scores
+  console.log('[PROFILE] Current Level:', profile?.current_level);
+  console.log('[PROFILE] Target Score:', profile?.target_score);
+  console.log('[PROFILE] Full Profile:', profile);
+
   const handleLogout = () => {
     Alert.alert(
       'Logout',
@@ -209,18 +214,30 @@ export default function ProfileScreen() {
 
       {/* Stats Section */}
       <View style={styles.statsSection}>
-        <View style={[styles.statCard, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.statNumber, { color: colors.primary }]}>
-            {profile?.current_level || '-'}
+        <Pressable
+          style={[styles.statCard, { backgroundColor: colors.cardBackground }]}
+          onPress={handleEditProfile}
+        >
+          <Text style={[styles.statNumber, { color: colors.primary, fontSize: (profile?.current_level !== undefined && profile?.current_level !== null) ? 28 : 18 }]}>
+            {(profile?.current_level !== undefined && profile?.current_level !== null) ? profile.current_level : 'Not Set'}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Current Level</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.statNumber, { color: colors.primary }]}>
-            {profile?.target_score || '-'}
+          {(profile?.current_level === undefined || profile?.current_level === null) && (
+            <Text style={styles.tapToSetLabel}>Tap to set</Text>
+          )}
+        </Pressable>
+        <Pressable
+          style={[styles.statCard, { backgroundColor: colors.cardBackground }]}
+          onPress={handleEditProfile}
+        >
+          <Text style={[styles.statNumber, { color: colors.primary, fontSize: (profile?.target_score !== undefined && profile?.target_score !== null) ? 28 : 18 }]}>
+            {(profile?.target_score !== undefined && profile?.target_score !== null) ? profile.target_score : 'Not Set'}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Target Score</Text>
-        </View>
+          {(profile?.target_score === undefined || profile?.target_score === null) && (
+            <Text style={styles.tapToSetLabel}>Tap to set</Text>
+          )}
+        </Pressable>
       </View>
 
       {/* Account Settings Section */}
@@ -461,6 +478,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
     textAlign: 'center',
+  },
+  tapToSetLabel: {
+    fontSize: 11,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   testDateCard: {
     flexDirection: 'row',

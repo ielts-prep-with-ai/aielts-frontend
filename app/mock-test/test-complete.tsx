@@ -13,8 +13,8 @@ export default function TestCompleteScreen() {
   const displayTestName = testName || 'IELTS Mock Test';
 
   const handleViewResults = () => {
-    // TODO: Navigate to results/feedback screen when evaluation is ready
-    // For now, show a message
+    // Navigate to profile where test history/results will be shown
+    // TODO: Create dedicated test history screen to show past tests and results
     router.push('/(tabs)/profile');
   };
 
@@ -30,7 +30,7 @@ export default function TestCompleteScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => router.push('/')}>
+        <Pressable style={styles.backButton} onPress={() => router.push('/(tabs)')}>
           <IconSymbol name="chevron.left" size={28} color="#000" />
         </Pressable>
         <Text style={styles.headerTitle}>AI Mock Test</Text>
@@ -57,15 +57,29 @@ export default function TestCompleteScreen() {
         {/* Info Section */}
         <Text style={styles.infoText}>
           Your test has been submitted successfully!{'\n\n'}
-          Our AI will evaluate your responses and provide detailed feedback on your performance.
+          Our AI is now evaluating your responses. This may take a few minutes.
+          {'\n\n'}
+          Your detailed results and feedback will be available in your test history soon.
           {testSessionId && `\n\nTest Session ID: ${testSessionId}`}
         </Text>
+
+        {/* Processing Status */}
+        <View style={styles.processingCard}>
+          <IconSymbol name="hourglass" size={24} color="#FF8C00" />
+          <View style={styles.processingContent}>
+            <Text style={styles.processingTitle}>AI Evaluation in Progress</Text>
+            <Text style={styles.processingText}>
+              We're analyzing your pronunciation, fluency, grammar, and vocabulary.
+              Check back in a few minutes for your detailed score and feedback.
+            </Text>
+          </View>
+        </View>
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
           <Pressable style={styles.primaryButton} onPress={handleViewResults}>
-            <IconSymbol name="chart.bar.fill" size={20} color="#fff" />
-            <Text style={styles.primaryButtonText}>View My Results</Text>
+            <IconSymbol name="person.fill" size={20} color="#fff" />
+            <Text style={styles.primaryButtonText}>Go to Profile</Text>
           </Pressable>
 
           <Pressable style={styles.secondaryButton} onPress={handleTakeAnotherTest}>
@@ -153,7 +167,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: 30,
-    marginBottom: 40,
+    marginBottom: 24,
+  },
+  processingCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF8E1',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 32,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF8C00',
+    gap: 16,
+  },
+  processingContent: {
+    flex: 1,
+  },
+  processingTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF8C00',
+    marginBottom: 8,
+  },
+  processingText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
   actionsContainer: {
     width: '100%',

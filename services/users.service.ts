@@ -20,7 +20,8 @@ export interface UserProfile {
 export interface UpdateUserProfile {
   user_name?: string;
   target_score?: number;
-  current_level?: number;
+  current_level?: number; // Deprecated - use current_score
+  current_score?: number; // Backend expects this
   // Optional fields for future use
   email?: string;
   phone?: string;
@@ -235,12 +236,45 @@ class UsersServiceClass {
         throw new Error(errorMessage);
       }
 
-      const profile = await response.json();
+      const rawProfile = await response.json();
 
       console.log('═══════════════════════════════════════════════════════════');
       console.log('[UsersService] ✅ PROFILE FETCHED SUCCESSFULLY');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('[UsersService] PROFILE DATA:');
+      console.log('[UsersService] RAW PROFILE DATA FROM BACKEND:');
+      console.log(JSON.stringify(rawProfile, null, 2));
+      console.log('═══════════════════════════════════════════════════════════');
+
+      // Map backend fields to frontend expected fields
+      // Backend might use different field names, so we handle common variations
+
+      // Debug: Log what we're checking for current_level
+      console.log('[UsersService] Checking current_level fields:');
+      console.log('  - current_level:', rawProfile.current_level);
+      console.log('  - currentLevel:', rawProfile.currentLevel);
+      console.log('  - current_band:', rawProfile.current_band);
+      console.log('  - currentBand:', rawProfile.currentBand);
+      console.log('  - current_score:', rawProfile.current_score);
+      console.log('  - currentScore:', rawProfile.currentScore);
+
+      const profile: UserProfile = {
+        user_id: rawProfile.user_id || rawProfile.userId,
+        user_name: rawProfile.user_name || rawProfile.userName || rawProfile.username,
+        avatar_url: rawProfile.avatar_url || rawProfile.avatarUrl,
+        email: rawProfile.email,
+        phone: rawProfile.phone,
+        bio: rawProfile.bio,
+        test_date: rawProfile.test_date || rawProfile.testDate,
+        created_at: rawProfile.created_at || rawProfile.createdAt,
+        updated_at: rawProfile.updated_at || rawProfile.updatedAt,
+        // Handle common field name variations for scores/levels
+        // Use ?? instead of || to properly handle 0 values
+        current_level: rawProfile.current_level ?? rawProfile.currentLevel ?? rawProfile.current_band ?? rawProfile.currentBand ?? rawProfile.current_score ?? rawProfile.currentScore,
+        target_score: rawProfile.target_score ?? rawProfile.targetScore ?? rawProfile.target_band ?? rawProfile.targetBand,
+      };
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[UsersService] MAPPED PROFILE DATA:');
       console.log(JSON.stringify(profile, null, 2));
       console.log('═══════════════════════════════════════════════════════════');
 
@@ -313,16 +347,33 @@ class UsersServiceClass {
         throw new Error(errorMessage);
       }
 
-      const updatedProfile = await response.json();
+      const rawProfile = await response.json();
 
       console.log('═══════════════════════════════════════════════════════════');
       console.log('[UsersService] ✅ PROFILE UPDATED SUCCESSFULLY');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('[UsersService] UPDATED PROFILE DATA:');
-      console.log(JSON.stringify(updatedProfile, null, 2));
+      console.log('[UsersService] RAW UPDATED PROFILE DATA:');
+      console.log(JSON.stringify(rawProfile, null, 2));
       console.log('═══════════════════════════════════════════════════════════');
 
-      return updatedProfile;
+      // Map backend fields to frontend expected fields
+      const profile: UserProfile = {
+        user_id: rawProfile.user_id || rawProfile.userId,
+        user_name: rawProfile.user_name || rawProfile.userName || rawProfile.username,
+        avatar_url: rawProfile.avatar_url || rawProfile.avatarUrl,
+        email: rawProfile.email,
+        phone: rawProfile.phone,
+        bio: rawProfile.bio,
+        test_date: rawProfile.test_date || rawProfile.testDate,
+        created_at: rawProfile.created_at || rawProfile.createdAt,
+        updated_at: rawProfile.updated_at || rawProfile.updatedAt,
+        // Handle common field name variations
+        // Use ?? instead of || to properly handle 0 values
+        current_level: rawProfile.current_level ?? rawProfile.currentLevel ?? rawProfile.current_band ?? rawProfile.currentBand ?? rawProfile.current_score ?? rawProfile.currentScore,
+        target_score: rawProfile.target_score ?? rawProfile.targetScore ?? rawProfile.target_band ?? rawProfile.targetBand,
+      };
+
+      return profile;
     } catch (error) {
       console.error('═══════════════════════════════════════════════════════════');
       console.error('[UsersService] ❌ ERROR UPDATING PROFILE');
