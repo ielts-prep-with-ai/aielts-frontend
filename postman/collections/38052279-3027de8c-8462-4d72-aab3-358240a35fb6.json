@@ -615,7 +615,7 @@
 					"response": []
 				},
 				{
-					"name": "New Request",
+					"name": "In/Activate User Account",
 					"id": "38052279-a2da3063-5f92-44bd-aef1-143eb7447b70",
 					"protocolProfileBehavior": {
 						"disableBodyPruning": true
