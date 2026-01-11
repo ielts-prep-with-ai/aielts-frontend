@@ -621,11 +621,21 @@
 						"disableBodyPruning": true
 					},
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZmIzMjBiLWFiZjMtNGNhMy05NzNhLWM1NjExODM4NDllMiIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNi0wMS0xMVQxNjowMDoxMC45OTMxNjYwMTlaIiwiZXhwaXJlZF9hdCI6IjIwMjYtMDItMTBUMTY6MDA6MTAuOTkzMTY2MTI3WiJ9.qbF2-DBbNWVRNlID_74e6VLI6TB_2rGg384PZ1euU40",
+									"type": "string"
+								}
+							]
+						},
 						"method": "PATCH",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"is_active\": true}",
+							"raw": "{\"active\": true}",
 							"options": {
 								"raw": {
 									"language": "json"
