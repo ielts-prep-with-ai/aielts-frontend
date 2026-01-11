@@ -53,31 +53,6 @@
 						},
 						"method": "GET",
 						"header": [],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "user_id",
-									"value": "",
-									"description": "nhớ lưu user_id lúc login",
-									"type": "text",
-									"uuid": "386386cd-c723-4be4-8ce2-c62bb997b17b"
-								},
-								{
-									"key": "question_id",
-									"value": "1",
-									"type": "text",
-									"uuid": "f0a479df-e5ba-41b6-adcc-fa402ae0e060"
-								},
-								{
-									"key": "audio_file",
-									"description": "tạo audio dạng .ogg r đính kèm",
-									"type": "file",
-									"uuid": "3f4180c7-9609-4127-84d0-976a25703c42",
-									"value": null
-								}
-							]
-						},
 						"url": {
 							"raw": "{{baseURL}}/api/v1/test_worker",
 							"host": [
@@ -527,7 +502,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjgxZjIxNjJmLWU4M2ItNDNhNi1iZjE4LWE2YWUxOTA2ODA5MiIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNS0xMS0yMFQxODoyOTowNC4wNjc3ODk5NVoiLCJleHBpcmVkX2F0IjoiMjAyNS0xMi0yMFQxODoyOTowNC4wNjc3OTAwMloifQ.kQ9DbY22iRN4fKmaU3Ad8NrdMSRxbD1hp7VDTLg6c-8",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImEyYWIxNzJiLTMxZjktNGJlNy05NzU4LTdhNDQ2MDQ4MWYxNiIsInVzZXJfaWQiOiIxMDU3MTIzMjQwODU1NDQzMjg5OTgiLCJpc3N1ZWRfYXQiOiIyMDI1LTEyLTIwVDAzOjQ2OjM5LjgzMzQzMDc5M1oiLCJleHBpcmVkX2F0IjoiMjAyNS0xMi0yMFQwNDoxNjozOS44MzM0MzA5MzNaIn0.UgOAW0Uq1o35_6E0GMFBfBg22IX7c3iNgwjCaxi6-pc",
 									"type": "string"
 								}
 							]
@@ -536,7 +511,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{   \r\n    \"target_score\": 9.0,\r\n    \"current_level\": 2.0\r\n\r\n}",
+							"raw": "{   \r\n    \"user_name\": \"lado muji\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -544,9 +519,9 @@
 							}
 						},
 						"url": {
-							"raw": "{{localURL}}/api/v1/users/me",
+							"raw": "{{baseURL}}/api/v1/users/me",
 							"host": [
-								"{{localURL}}"
+								"{{baseURL}}"
 							],
 							"path": [
 								"api",
@@ -674,6 +649,18 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "New Request",
+					"id": "38052279-a2da3063-5f92-44bd-aef1-143eb7447b70",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
 				}
 			],
 			"id": "38052279-56374259-488d-490f-85b9-a702f798e527",
@@ -702,9 +689,9 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseURL}}/api/v1/vocabulary/search?q=dad",
+							"raw": "{{localURL}}/api/v1/vocabulary/search?q=s",
 							"host": [
-								"{{baseURL}}"
+								"{{localURL}}"
 							],
 							"path": [
 								"api",
@@ -715,7 +702,7 @@
 							"query": [
 								{
 									"key": "q",
-									"value": "dad"
+									"value": "s"
 								}
 							]
 						}
@@ -849,7 +836,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{localURL}}/api/v1/vocabulary/autocomplete?prefix=thrOUgH",
+							"raw": "{{localURL}}/api/v1/vocabulary/autocomplete?prefix=com",
 							"host": [
 								"{{localURL}}"
 							],
@@ -862,7 +849,7 @@
 							"query": [
 								{
 									"key": "prefix",
-									"value": "thrOUgH"
+									"value": "com"
 								}
 							]
 						}
@@ -1027,15 +1014,15 @@
 							]
 						},
 						"url": {
-							"raw": "{{localURL}}/api/v1/questions/15/answers",
+							"raw": "{{baseURL}}/api/v1/questions/118/answers",
 							"host": [
-								"{{localURL}}"
+								"{{baseURL}}"
 							],
 							"path": [
 								"api",
 								"v1",
 								"questions",
-								"15",
+								"118",
 								"answers"
 							]
 						}
@@ -1069,6 +1056,49 @@
 									"type": "text",
 									"disabled": true
 								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get batch of questions",
+					"id": "38052279-05eb83bb-641f-498c-835c-e95c0cf41303",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU3ZjMyMWNiLTYxNjAtNDc5NC1hMWIxLThhNmY4MWFkZDU4OCIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNS0xMi0yOVQyMzowNjowNy41NDA1MTM2NTdaIiwiZXhwaXJlZF9hdCI6IjIwMjYtMDEtMjhUMjM6MDY6MDcuNTQwNTEzNzU3WiJ9.GgKlvSQ2_hjNYNpN3IgakC6AXLk7VwLnCQeaErPtcrQ",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"ids\": [5,2,3]}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{localURL}}/api/v1/questions/batch",
+							"host": [
+								"{{localURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"questions",
+								"batch"
 							]
 						}
 					},
@@ -1131,7 +1161,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNmMTkyMDAzLTYwZTUtNGZhMy1hYTM5LWI3ZWRlMTc0N2RmMyIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNS0xMS0yMVQwMToxODowNi41MDA4NjcxMzhaIiwiZXhwaXJlZF9hdCI6IjIwMjUtMTItMjFUMDE6MTg6MDYuNTAwODY3Mjc4WiJ9.48GYmzF0HWdgy-1XEpw-v0JFsTjYXcjggQM6xuWBks0",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI4MDg5YWQ1LWJkMWEtNDA5ZS05MmQ3LWI1YTM4MjMzYmJkNSIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQyMDoyOToyNC4wNzQ2MTI1NDlaIiwiZXhwaXJlZF9hdCI6IjIwMjYtMDEtMzFUMjA6Mjk6MjQuMDc0NjEyNjA5WiJ9.dEO8QnEk5uvUbXlDS2SnSL84yCzoIXGIoXjvGded4iI",
 									"type": "string"
 								}
 							]
@@ -1148,51 +1178,14 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseURL}}/api/v1/start_test",
+							"raw": "{{localURL}}/api/v1/start_test",
 							"host": [
-								"{{baseURL}}"
+								"{{localURL}}"
 							],
 							"path": [
 								"api",
 								"v1",
 								"start_test"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Confirm Submisssion",
-					"id": "38052279-840f502e-cd31-4b58-a808-4e91a01e2a6d",
-					"protocolProfileBehavior": {
-						"disableBodyPruning": true
-					},
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjBiMGNkYzM3LWVmNzktNGI2OS05OTkwLTUzMjA1ZGFiYmVhNSIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTExLTEwVDIzOjUxOjI4LjI5MDMyNjctMDU6MDAiLCJleHBpcmVkX2F0IjoiMjAyNS0xMS0xMVQyMzo1MToyOC4yOTAzMjY3LTA1OjAwIn0.J2P9Z2nja0CH8vzwtpf52cMk1nMMVh9QPmst5oLot9k",
-									"type": "string"
-								}
-							]
-						},
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\r\n    \"test_session_id\": \"42a13932-8124-4450-b1e1-7550fee0e040\",\r\n    \"answers\": {\r\n        \"part3\": { \r\n            \"118\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q118_20251015_021251.450.ogg\",\r\n            \"119\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q119_20251015_021251.451.ogg\",\r\n            \"120\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q120_20251015_021251.451.ogg\"\r\n        }\r\n }\r\n}"
-						},
-						"url": {
-							"raw": "{{baseURL}}/api/v1/confirm_simulation_submission",
-							"host": [
-								"{{baseURL}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"confirm_simulation_submission"
 							]
 						}
 					},
@@ -1235,6 +1228,43 @@
 								"api",
 								"v1",
 								"get_simulation_upload_urls"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Confirm Submisssion",
+					"id": "38052279-840f502e-cd31-4b58-a808-4e91a01e2a6d",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM3YjUyYzAwLTQyZTAtNDA2Ni1iZjU0LThkZWM0MjJlOTViZCIsInVzZXJfaWQiOiIxMTExIiwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wNlQwMzo0MjoxNy41MzM3MDQzNDhaIiwiZXhwaXJlZF9hdCI6IjIwMjYtMDItMDVUMDM6NDI6MTcuNTMzNzA0NDI0WiJ9.SicwYdU1jT6pGAb0YFxh0gh3FW9-pc0_GpnWiGjWiAQ",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"test_session_id\": \"5e20275b-3037-44b6-8e30-e94f449b8be7\",\r\n    \"answers\": {\r\n        \"part3\": { \r\n            \"118\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q118_20251015_021251.450.ogg\",\r\n            \"119\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q119_20251015_021251.451.ogg\",\r\n            \"120\": \"uploads/audios/user_id_112391452761751788279/tests/testses_42a13932-8124-4450-b1e1-7550fee0e040/part3q120_20251015_021251.451.ogg\"\r\n        }\r\n }\r\n}"
+						},
+						"url": {
+							"raw": "{{localURL}}/api/v1/confirm_simulation_submission",
+							"host": [
+								"{{localURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"confirm_simulation_submission"
 							]
 						}
 					},
