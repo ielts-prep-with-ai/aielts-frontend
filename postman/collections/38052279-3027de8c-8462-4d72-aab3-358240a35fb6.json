@@ -534,42 +534,6 @@
 					"response": []
 				},
 				{
-					"name": "Me Delete Account",
-					"id": "38052279-7edd0622-8471-4c3e-a745-15da78f17c91",
-					"protocolProfileBehavior": {
-						"disableBodyPruning": true
-					},
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYzZTg1ZWIzLTFkYjctNGZhOC04MWE0LWM5OWEzOTY4Y2I2NyIsInVzZXJfaWQiOiIxMTIzOTE0NTI3NjE3NTE3ODgyNzkiLCJpc3N1ZWRfYXQiOiIyMDI1LTExLTE5VDIzOjMxOjIyLjE5OTYyMzQ4OVoiLCJleHBpcmVkX2F0IjoiMjAyNS0xMS0yMFQyMzozMToyMi4xOTk2MjM1NzlaIn0.0jGLy_sRXQAW9ApYYgsySq1A5p241QwEev1z4L3JHjo",
-									"type": "string"
-								}
-							]
-						},
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "http://localhost:8301/api/v1/users/me",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "8301",
-							"path": [
-								"api",
-								"v1",
-								"users",
-								"me"
-							]
-						}
-					},
-					"response": []
-				},
-				{
 					"name": "Me Upload Avatar",
 					"id": "38052279-107e886e-2f52-4e6e-8cb5-de96634cf576",
 					"protocolProfileBehavior": {
