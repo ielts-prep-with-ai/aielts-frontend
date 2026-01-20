@@ -176,6 +176,18 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "test submit simulation test",
+					"id": "38052279-60742c16-1645-401f-9dfe-8343d6b2d486",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
 				}
 			],
 			"id": "38052279-2273448f-20f2-4d61-bac8-9aecd6343d1f"
